@@ -1,4 +1,5 @@
 import { createApp } from "vue";
 import App from "./App.vue";
+import Vue3Json from "./index";
 
-createApp(App).mount("#app");
+createApp(App).use(Vue3Json).mount("#app");

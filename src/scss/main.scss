@@ -1,0 +1,55 @@
+@import "options";
+
+.vj {
+  &-content {
+    text-align: left;
+    display: block;
+    position: relative;
+  }
+
+  &-el {
+    display: block;
+    position: relative;
+
+    &--flex {
+      display: flex;
+    }
+
+    &--clickable {
+      cursor: pointer;
+    }
+
+    &--collapsed {
+      display: inline-block !important;
+    }
+
+    &__token {
+      padding: 2px;
+    }
+
+    &__tab {
+      &-space {
+        width: 1em;
+        display: inline-block;
+        height: 100%;
+      }
+    }
+
+    &__key {
+      display: inline-block;
+    }
+
+    &__bracket {
+      display: inline-block;
+    }
+
+    &__string {
+      display: inline-block;
+
+      .vj-el__token {
+        display: flex;
+        color: $string-color;
+      }
+    }
+  }
+}

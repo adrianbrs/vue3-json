@@ -1,16 +1,24 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png" />
-  <HelloWorld msg="Welcome to Your Vue.js + TypeScript App" />
+  <h1>Vue3Json Demo</h1>
+  <vue-json v-model="json" />
 </template>
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import HelloWorld from "./components/HelloWorld.vue";
 
 export default defineComponent({
   name: "App",
-  components: {
-    HelloWorld,
+  data() {
+    return {
+      json: {
+        str: "str",
+        num: 1,
+        arr: ["item 1", 1, { sub: "test" }, ["subarr"]],
+        obj: {
+          prop: "strprop",
+        },
+      },
+    };
   },
 });
 </script>
