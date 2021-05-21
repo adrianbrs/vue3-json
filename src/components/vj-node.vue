@@ -1,8 +1,5 @@
 <template>
-  <span
-    :class="[nodeClasses, classes]"
-    v-if="!isBracket || !isClose || !isCollapsed"
-  >
+  <span :class="[nodeClasses, classes]">
     <vj-tab :token="token" @toggleCollapse="toggleCollapse" />
 
     <span class="vj-el__content">

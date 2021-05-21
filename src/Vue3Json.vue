@@ -3,8 +3,8 @@
     <div style="padding: 0 3em 0 2em; text-align: left">
       <pre>{{ scroll }}</pre>
       <pre>{{ view }}</pre>
-      <pre>{{ startEntry ? startEntry.index : "null" }}</pre>
-      <pre>{{ endEntry ? endEntry.index : "null" }}</pre>
+      <pre>{{ startEntry }}</pre>
+      <pre>{{ endEntry }}</pre>
     </div>
 
     <div
@@ -41,6 +41,7 @@ import {
   provide,
   reactive,
   ref,
+  toRef,
   toRefs,
   watch,
 } from "vue";
@@ -99,10 +100,11 @@ export default defineComponent({
         top: 0,
         bottom: 0,
       },
-      startEntry: null as VJToken<VJTokenType> | null,
-      endEntry: null as VJToken<VJTokenType> | null,
+      startEntry: 0,
+      endEntry: 0,
       scrollDirty: false,
       prerender: 1,
+      heightList: [] as number[],
     };
   },
   setup(props) {
@@ -128,19 +130,9 @@ export default defineComponent({
     const elements = ref(useParser(modelValue.value, parserOptions.value));
     provide(VJTokenListKey, elements);
 
-    // Elements heights
-    const heightList = ref<number[]>(
-      new Array(elements.value.length).fill(lineHeight.value)
-    );
-
     // Watch model value
     watch(modelValue, (val) => {
       elements.value = useParser(val, parserOptions.value);
-
-      // Update height list
-      heightList.value = new Array(elements.value.length).fill(
-        lineHeight.value
-      );
     });
 
     // Watch parser options change
@@ -155,11 +147,15 @@ export default defineComponent({
       viewContent,
       elements,
       isHoverable: hoverable,
-      heightList,
       lineNumberWidth,
       // showLength: propsRef.showLength,
       // showQuotes: propsRef.showQuotes,
     };
+  },
+  created() {
+    this.elements.forEach((el) => {
+      this.heightList.push(this.lineHeight);
+    });
   },
   mounted() {
     if (!this.viewContent) return;
@@ -176,19 +172,48 @@ export default defineComponent({
     }
   },
   computed: {
-    visibleElements(): VJToken<VJTokenType>[] {
-      return (
-        this.elements.filter((el: VJToken<VJTokenType>) => el.visible) ?? []
-      );
+    visibleElements(): {
+      token: VJToken<VJTokenType>;
+      index: number;
+      height: number;
+      bottom: number;
+      top: number;
+    }[] {
+      const els =
+        this.elements
+          .filter((el: VJToken<VJTokenType>) => el.visible)
+          .reduce(
+            (arr, token, i) => {
+              const height = this.heightList[token.index] ?? this.lineHeight;
+              arr.push({
+                token,
+                index: i,
+                height,
+                bottom: height + (arr[i - 1] ? arr[i - 1].bottom : 0),
+                top: arr[i - 1] ? arr[i - 1].bottom : 0,
+              });
+
+              return arr;
+            },
+            [] as {
+              token: VJToken<VJTokenType>;
+              index: number;
+              height: number;
+              bottom: number;
+              top: number;
+            }[]
+          ) ?? [];
+
+      return els;
     },
     renderElements(): VJToken<VJTokenType>[] {
-      const start = this.startEntry?.index ?? 0;
-      const end = this.endEntry?.index;
-      return this.visibleElements.slice(start, end);
+      const start = this.startEntry ?? 0;
+      const end = this.endEntry;
+      return this.visibleElements.slice(start, end).map((v) => v.token);
     },
     nodeStyle(): Record<string, string> {
-      const startIndex = this.startEntry?.index ?? 0;
-      const top = this.visibleHeightsAcc[startIndex - 1] ?? 0;
+      const startIndex = this.startEntry ?? 0;
+      const top = this.visibleElements[startIndex].top ?? 0;
 
       return {
         transform: `translateY(${top}px)`,
@@ -198,14 +223,6 @@ export default defineComponent({
       return {
         height: `${this.scroll.height}px`,
       };
-    },
-    visibleHeightsAcc(): number[] {
-      return this.visibleElements
-        .reduce((arr, token, i) => {
-          arr.push(this.heightList[token.index] + (arr[i - 1] ?? 0));
-          return arr;
-        }, [] as number[])
-        .filter((n) => typeof n === "number" && !isNaN(n));
     },
   },
   watch: {
@@ -223,8 +240,8 @@ export default defineComponent({
       const scrollHeight = this.viewContent.scrollHeight;
       this.scroll = {
         top: scrollTop,
-        height: this.visibleHeightsAcc
-          ? this.visibleHeightsAcc[this.visibleHeightsAcc.length - 1]
+        height: this.visibleElements
+          ? this.visibleElements[this.visibleElements.length - 1].bottom
           : scrollHeight,
         end: scrollTop + height,
       };
@@ -255,86 +272,95 @@ export default defineComponent({
       }
     },
     isCollapsed(el: VJToken<VJTokenType>) {
-      if (!el) return false;
-      if (el.collapsed) return true;
+      if (!el) return true;
+      if (el.collapsed || (el.groupToken && el.groupToken.collapsed))
+        return true;
 
       let parent = el.parent;
       while (parent) {
-        if (parent.collapsed) return true;
+        if (
+          parent.collapsed ||
+          (parent.groupToken && parent.groupToken.collapsed)
+        )
+          return true;
         parent = parent.parent;
       }
       return false;
     },
-    updateCollapse(index: number, collapsed: boolean) {
+    updateCollapse(index: number, collapsed: boolean): void {
       const el = this.elements[index];
+      if (el.role === "close" && el.groupToken) {
+        return this.updateCollapse(el.groupToken.index, collapsed);
+      }
       const { depth } = el;
+      el.collapsed = collapsed;
 
-      let next,
-        dir = el.role === "open" ? 1 : -1;
-      let i = index;
-      do {
-        i += dir;
-        next = this.elements[i];
+      // Change group token collapse
+      if (el.groupToken) {
+        const { groupToken } = el;
+        groupToken.collapsed = collapsed;
 
-        if (next.depth === depth) {
-          next.collapsed = collapsed;
-        } else {
-          next.visible = !collapsed
-            ? (!next.parent || !this.isCollapsed(next.parent)) ?? !collapsed
-            : !collapsed;
+        if (groupToken.role === "close") {
+          groupToken.visible = !collapsed;
         }
-      } while (i >= 0 && i <= this.elements.length - 1 && next.depth > depth);
+      }
+
+      // Childrens
+      let i = index;
+      let next = this.elements[++i];
+
+      while (next && next.depth > depth) {
+        if (collapsed) {
+          next.visible = false;
+        } else if (next.role === "open" || !this.isCollapsed(next)) {
+          next.visible = true;
+        }
+        next = this.elements[++i];
+      }
     },
     updateEntries() {
       this.startEntry = this.binEntrySearch();
 
       // Find end entry
       const count = this.visibleElements.length;
-      const startIdx = this.startEntry ? this.startEntry.index : 0;
 
       let endIdx;
-      for (endIdx = startIdx; endIdx < count; endIdx++) {
-        const bottom = this.visibleHeightsAcc[endIdx];
+      for (endIdx = this.startEntry; endIdx < count; endIdx++) {
+        const bottom = this.visibleElements[endIdx].bottom;
         if (bottom > this.scroll.end) {
           break;
         }
       }
 
-      endIdx = Math.min(endIdx + this.prerender, count - 1);
-      this.endEntry = this.visibleElements[endIdx];
+      endIdx = Math.min(endIdx + 1, count);
+      this.endEntry = Math.max(endIdx, 1);
     },
     binEntrySearch() {
       const count = this.visibleElements.length;
 
       let start = 0;
-      let end = count - 1;
+      let end = count;
       let i = ~~(count / 2);
-      let oldI, height;
+      let oldI, el;
 
       do {
         oldI = i;
-        height = this.visibleHeightsAcc[i];
+        el = this.visibleElements[i];
 
-        if (height < this.scroll.top) {
+        if (el.bottom < this.scroll.top) {
           start = i;
-        } else if (
-          i < count - 1 &&
-          this.visibleHeightsAcc[i + 1] > this.scroll.top
-        ) {
+        } else if (el.top >= this.scroll.top) {
           end = i;
         }
 
         i = ~~((start + end) / 2);
-      } while (i !== oldI);
-
-      // Prerender
-      i -= this.prerender;
+      } while (i !== oldI && start !== end);
 
       // Normalize index
       if (i < 0) i = 0;
       if (i > count - 1) i = count - 1;
 
-      return this.visibleElements[i];
+      return i;
     },
   },
   beforeUnmount() {

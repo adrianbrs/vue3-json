@@ -34,6 +34,7 @@
 
 <script lang="ts">
 import { defineComponent } from "vue";
+import example1 from "./examples/example1.json";
 
 export default defineComponent({
   name: "App",
@@ -44,30 +45,7 @@ export default defineComponent({
       showLength: true,
       showQuotes: true,
       debounce: null as number | null,
-      json: {
-        str: "str",
-        num: 1,
-        arr: ["item 1", 1, { sub: "test" }, ["subarr"]],
-        obj: {
-          prop: "strprop",
-        },
-        last: {
-          inner: {
-            join: {
-              more: {
-                deep: {
-                  uou: [
-                    "hello",
-                    {
-                      eita: "aaa",
-                    },
-                  ],
-                },
-              },
-            },
-          },
-        },
-      },
+      json: example1,
     };
   },
   computed: {

@@ -33,15 +33,12 @@ export function useParser(
       el.visible = !hide;
 
       // Set collapsed
-      if (
-        maxDepth > -1 &&
-        el.type === "bracket" &&
-        el.depth >= maxDepth &&
-        el.childCount
-      ) {
+      if (maxDepth > -1 && el.type === "bracket" && el.depth >= maxDepth) {
         el.collapsed = true;
-      } else if (el.collapsed) {
-        el.collapsed = false;
+
+        if (el.role === "close") {
+          el.visible = false;
+        }
       }
 
       el.index = i;
