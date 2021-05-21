@@ -1,4 +1,12 @@
-import { InjectionKey } from "@vue/runtime-core";
-import { JSONTokenLoaded } from "./composables/useParser";
+import { InjectionKey, Ref } from "@vue/runtime-core";
+import { VJToken, VJTokenType } from "./composables/useParser";
+import { VJOptions } from "./types";
 
-export const TokenList: InjectionKey<JSONTokenLoaded[]> = Symbol("TokenList");
+export const VJTokenListKey: InjectionKey<Ref<VJToken<VJTokenType>[]>> =
+  Symbol("VueJson_TokenList");
+
+export const VJOptionsKey: InjectionKey<VJOptions> = Symbol("VueJson_Options");
+
+export const VJLineNumberWidthKey: InjectionKey<Ref<number>> = Symbol(
+  "VueJson_LineNumberWidth"
+);

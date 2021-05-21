@@ -1,1 +1,24 @@
+$base-transition: all 0.1s ease-in-out;
+
+// Colors
 $string-color: green;
+$number-color: blue;
+$bracket-hover-color: #0af;
+$ellipsis-color: #999;
+$tab-border-color: #aaa;
+$tab-border-color-active: #{$bracket-hover-color};
+$line-hover-color: rgba(#0af, 0.2);
+$block-hover-color: rgba(#0af, 0.1);
+$comment-color: #acacac;
+
+:root {
+  --vj-string-color: #{$string-color};
+  --vj-number-color: #{$number-color};
+  --vj-bracket-hover-color: #{$bracket-hover-color};
+  --vj-ellipsis-color: #{$ellipsis-color};
+  --vj-tab-border-color: #{$tab-border-color};
+  --vj-tab-border-color-active: #{$tab-border-color-active};
+  --vj-line-hover-color: #{$line-hover-color};
+  --vj-block-hover-color: #{$block-hover-color};
+  --vj-comment-color: #{$comment-color};
+}
