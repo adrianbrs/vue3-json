@@ -1,24 +1,33 @@
-# vue3-json
+# Vue3Json
+
+## Customizable JSON viewer and editor for Vue 3
+
+---
 
 ## Project setup
+
 ```
-yarn install
+yarn dev
 ```
 
 ### Compiles and hot-reloads for development
+
 ```
 yarn serve
 ```
 
 ### Compiles and minifies for production
+
 ```
 yarn build
 ```
 
 ### Lints and fixes files
+
 ```
 yarn lint
 ```
 
 ### Customize configuration
+
 See [Configuration Reference](https://cli.vuejs.org/config/).
