@@ -1,0 +1,18 @@
+.vj-comment {
+  color: $comment-color;
+}
+
+.vj-string {
+  .vj-token {
+    color: $string-color;
+  }
+  .vj-quote {
+    color: $string-quote-color;
+  }
+}
+
+.vj-number {
+  .vj-token {
+    color: $number-color;
+  }
+}

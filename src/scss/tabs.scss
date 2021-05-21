@@ -1,0 +1,21 @@
+.vj {
+  &__tabs {
+    display: flex;
+
+    // Tab lines
+    &.has-lines {
+      .vj-space {
+        box-shadow: -1px 0 0 $tab-border-color;
+        z-index: -2;
+
+        &.active {
+          box-shadow: -1px 0 0 $tab-border-color-active;
+        }
+      }
+    }
+  }
+}
+
+.vj-space {
+  user-select: text;
+}

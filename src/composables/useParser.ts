@@ -29,15 +29,22 @@ export function useParser(
   return reactive(
     elements.map((el, i) => {
       const maxDepth = options.maxDepth;
-      const hide = maxDepth > -1 && el.depth > maxDepth;
-      el.visible = !hide;
 
-      // Set collapsed
-      if (maxDepth > -1 && el.type === "bracket" && el.depth >= maxDepth) {
-        el.collapsed = true;
+      if (maxDepth >= 0) {
+        const hide = el.depth > maxDepth;
+        el.visible = !hide;
 
-        if (el.role === "close") {
-          el.visible = false;
+        // Set collapsed
+        if (el.type === "bracket" && el.depth >= maxDepth) {
+          el.collapsed = true;
+
+          if (el.groupToken) {
+            el.groupToken.collapsed = true;
+          }
+
+          if (el.role === "close") {
+            el.visible = false;
+          }
         }
       }
 

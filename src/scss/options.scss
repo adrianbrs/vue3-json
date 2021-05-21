@@ -1,28 +1,37 @@
-$base-transition: all 0.1s ease-in-out;
+$theme-dark: (
+  code-bg: #fff,
+  primary: #0af,
+  sel-highlight: #bcbcbc,
+  tab-border-color: #ddd,
+  comment-color: #aaa,
+  string-color: #090,
+  string-quote-color: #008000,
+  number-color: #00e,
+);
 
 // Colors
-$code-bg: #fff;
-$side-bg: #eee;
-$string-color: green;
-$number-color: blue;
-$bracket-hover-color: #0af;
-$ellipsis-color: #999;
-$tab-border-color: #ddd;
-$tab-border-color-active: #{$bracket-hover-color};
-$line-hover-color: rgba(#0af, 0.2);
-$block-hover-color: rgba(#0af, 0.1);
-$comment-color: #acacac;
+$primary: map-get(
+  $map: $theme-dark,
+  $key: "primary",
+);
+$comment-color: map-get(
+  $map: $theme-dark,
+  $key: "comment-color",
+);
+$string-color: map-get(
+  $map: $theme-dark,
+  $key: "string-color",
+);
+$string-quote-color: map-get(
+  $map: $theme-dark,
+  $key: "string-quote-color",
+);
+$number-color: map-get(
+  $map: $theme-dark,
+  $key: "number-color",
+);
+$code-selection-dark: #bcbcbc;
 
-:root {
-  --vj-side-bg: #{$side-bg};
-  --vj-code-bg: #{$code-bg};
-  --vj-string-color: #{$string-color};
-  --vj-number-color: #{$number-color};
-  --vj-bracket-hover-color: #{$bracket-hover-color};
-  --vj-ellipsis-color: #{$ellipsis-color};
-  --vj-tab-border-color: #{$tab-border-color};
-  --vj-tab-border-color-active: #{$tab-border-color-active};
-  --vj-line-hover-color: #{$line-hover-color};
-  --vj-block-hover-color: #{$block-hover-color};
-  --vj-comment-color: #{$comment-color};
-}
+// Tabs
+$tab-border-color: #ddd;
+$tab-border-color-active: $primary;

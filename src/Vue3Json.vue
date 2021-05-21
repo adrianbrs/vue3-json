@@ -1,7 +1,7 @@
 <template>
   <div class="vj-app">
-    <div ref="viewContent" :class="['vj-content', { hoverable: isHoverable }]">
-      <div class="vj-content__line-numbers" v-if="showLineNumbers">
+    <div ref="viewContent" :class="['vj__window', { hoverable: isHoverable }]">
+      <div class="vj-content__line-numbers" v-if="false">
         <span
           class="vj-el__line-number"
           v-for="line in lineNumberElements"
@@ -24,7 +24,17 @@
           </span>
         </span>
       </div>
-      <div class="vj-content__view" :style="viewStyle">
+
+      <div
+        :class="[
+          'vj__view',
+          {
+            'vj--collapsable-bracket': canBracketCollapse,
+            'vj--tablines': hasTablines,
+          },
+        ]"
+        :style="viewStyle"
+      >
         <vj-node
           v-for="el in renderElements"
           :key="el.index"
@@ -32,7 +42,7 @@
           :style="nodeStyle"
           v-model:collapsed="el.collapsed"
           @update:collapsed="(collapsed) => updateCollapse(el.index, collapsed)"
-          @mounted="onElementMounted"
+          @ready="onElementReady"
         ></vj-node>
       </div>
     </div>
@@ -104,6 +114,10 @@ export default defineComponent({
       type: Boolean,
       default: () => false,
     },
+    tabSpaces: {
+      type: Number,
+      default: () => 2,
+    },
   },
   components: {
     "vj-node": vjNodeVue,
@@ -130,7 +144,15 @@ export default defineComponent({
   },
   setup(props) {
     const propsRef = toRefs(props);
-    const { modelValue, depth, hoverable, lineNumbers, virtualList } = propsRef;
+    const {
+      modelValue,
+      depth,
+      hoverable,
+      lineNumbers,
+      virtualList,
+      collapseBracket: canBracketCollapse,
+      tablines: hasTablines,
+    } = propsRef;
 
     // Line number max width ref
     const lineNumWidthRef = ref<HTMLElement | null>(null);
@@ -138,12 +160,13 @@ export default defineComponent({
 
     const options = reactive({
       depth: depth,
-      tablines: propsRef.tablines,
+      tablines: hasTablines,
       showQuotes: propsRef.showQuotes,
       showLength: propsRef.showLength,
       valueParser: propsRef.valueParser,
-      collapseBracket: propsRef.collapseBracket,
+      collapseBracket: canBracketCollapse,
       collapseButton: propsRef.collapseButton,
+      tabSpaces: propsRef.tabSpaces,
     } as ToRefs<VJOptions>);
 
     // Provide plugin props
@@ -177,6 +200,8 @@ export default defineComponent({
       lineNumWidthRef,
       viewRef,
       useVirtualList: virtualList,
+      canBracketCollapse,
+      hasTablines,
     };
   },
   created() {
@@ -321,7 +346,7 @@ export default defineComponent({
         });
       }
     },
-    onElementMounted(el: HTMLElement, token: VJToken<VJTokenType>) {
+    onElementReady(el: HTMLElement, token: VJToken<VJTokenType>) {
       if (el && typeof el.clientHeight !== "undefined") {
         this.heightList[token.index] = el.clientHeight;
       }

@@ -4,67 +4,56 @@
       nodeClasses,
       classes,
       {
-        collapsable: collapseBracket,
+        collapsable: canCollapse,
+        hover: isHovered,
       },
     ]"
   >
     <vj-tab :token="token" @toggleCollapse="toggleCollapse" />
 
-    <span class="vj-el__content">
-      <span class="vj-el__key" v-if="token.key">
-        <span class="vj-el__key-block">
-          <pre class="vj-el__quotation-mark" v-if="isShowQuotes">"</pre>
-          <pre class="vj-el__key-text" v-text="token.key"></pre>
-          <pre class="vj-el__quotation-mark" v-if="isShowQuotes">"</pre>
-        </span>
-        <pre class="vj-el__key-colon">:</pre>
+    <span class="vj__key" v-if="token.key">
+      <span class="vj-quote" v-if="showQuotes">"</span>
+      <span class="vj-text" v-text="token.key"></span>
+      <span class="vj-quote" v-if="showQuotes">"</span>
+      <span class="vj-colon">:</span>
+    </span>
+
+    <span v-if="token.key" class="vj-space">&nbsp;</span>
+
+    <span :class="['vj__value', `vj-${token.type}`]">
+      <span class="vj-quote" v-if="isString">"</span>
+
+      <!-- Clickable Bracket -->
+      <span
+        :class="[
+          'vj-text',
+          {
+            'vj--clickable': canCollapse,
+          },
+        ]"
+        @click="onClick"
+      >
+        <span
+          class="vj-token"
+          @mouseenter="onMouseOver"
+          @mouseout="onMouseOut"
+          v-text="token.value"
+        ></span>
+
+        <template v-if="isCollapsed && !isClose">
+          <span class="vj-ellipsis">...</span>
+          <span class="vj-token">{{ closeToken }}</span>
+        </template>
       </span>
+      <!-- / Clickable Bracket -->
 
-      <span class="vj-el__value">
-        <span class="vj-el__value-block">
-          <pre class="vj-el__quotation-mark" v-if="isString">"</pre>
+      <span class="vj-quote" v-if="isString">"</span>
+      <span class="vj-comma" v-if="hasNext">,</span>
 
-          <span
-            :class="[
-              'vj-el__value-text',
-              {
-                'vj-el--clickable': collapseBracket && isBracket,
-                hover: this.groupToken && this.groupToken.hover,
-              },
-            ]"
-            @click="onClick"
-          >
-            <pre
-              v-if="valueParser"
-              @mouseenter="onMouseOver"
-              @mouseout="onMouseOut"
-              v-html="valueParser(token.value)"
-            ></pre>
-            <pre
-              v-else
-              @mouseenter="onMouseOver"
-              @mouseout="onMouseOut"
-              v-text="token.value"
-            ></pre>
-
-            <template v-if="isBracket && !isClose && isCollapsed && groupToken">
-              <pre class="vj-el__ellipsis">...</pre>
-              <pre>{{ groupToken.value }}</pre>
-            </template>
-          </span>
-
-          <pre class="vj-el__quotation-mark" v-if="isString">"</pre>
-        </span>
-
-        <pre class="vj-el__value-comma" v-if="hasNext">,</pre>
-
-        <pre
-          class="vj-el__comment"
-          v-if="isBracket && isCollapsed && isShowLength"
-        >
-// {{ token.childCount }} items</pre
-        >
-      </span>
+      <!-- Show length -->
+      <span class="vj-comment" v-if="isCollapsed && showLength"
+        >&nbsp;// {{ token.childCount }} items</span
+      >
     </span>
   </span>
 </template>
@@ -93,11 +82,13 @@ export default defineComponent({
     },
   },
   setup(props, context) {
-    const tokenList = inject(VJTokenListKey);
-    const vjOptions = toRefs(inject(VJOptionsKey) as VJOptions);
-
     const propsRef = toRefs(props);
     const tokenRef = propsRef.token.value;
+
+    const tokenList = inject(VJTokenListKey);
+    const { showQuotes, showLength, collapseBracket, valueParser } = toRefs(
+      inject(VJOptionsKey) as VJOptions
+    );
 
     let options = {
       toggleColapse: null,
@@ -111,30 +102,31 @@ export default defineComponent({
     return {
       tokenRef,
       tokenList,
-      isShowLength: vjOptions.showLength,
-      isShowQuotes: vjOptions.showQuotes,
-      valueParser: vjOptions.valueParser as unknown as VJValueParser,
-      collapseBracket: vjOptions.collapseBracket,
+      showLength,
+      showQuotes,
+      valueParser: valueParser as unknown as VJValueParser,
+      collapseBracket,
       toggleCollapse: null,
       classes: [],
       ...options,
     };
   },
   mounted() {
-    this.$emit("mounted", this.$el, this.token);
+    this.$emit("ready", this.$el, this.token);
   },
   methods: {
     onClick() {
-      if (this.collapseBracket && this.isBracket && this.toggleCollapse) {
+      if (this.canCollapse && this.toggleCollapse) {
         (this.toggleCollapse as unknown as () => void)();
 
+        // Remove hover if clicked on a close bracket
         if (this.isClose) {
           this.onMouseOut();
         }
       }
     },
     onMouseOver() {
-      if (this.collapseBracket && this.isBracket && this.tokenRef) {
+      if (this.canCollapse && this.tokenRef) {
         this.tokenRef.hover = true;
         if (this.groupToken) {
           this.groupToken.hover = true;
@@ -142,7 +134,7 @@ export default defineComponent({
       }
     },
     onMouseOut() {
-      if (this.collapseBracket && this.isBracket && this.tokenRef) {
+      if (this.canCollapse && this.tokenRef) {
         this.tokenRef.hover = false;
         if (this.groupToken) {
           this.groupToken.hover = false;
@@ -153,11 +145,10 @@ export default defineComponent({
   computed: {
     nodeClasses(): Record<string, boolean> {
       return {
-        "vj-el": true,
-        "vj-el__node": true,
-        "vj-el--hover-block": this.tokenRef.hover ?? false,
-        [`vj-el__${this.tokenRef.type}`]: true,
-        [`vj-el--${this.tokenRef.role}`]: !!this.tokenRef,
+        vj__node: true,
+        hover: this.tokenRef.hover ?? false,
+        [this.tokenRef.type]: true,
+        [this.tokenRef.role as string]: !!this.tokenRef.role as boolean,
       };
     },
     hasNext(): boolean {
@@ -174,19 +165,34 @@ export default defineComponent({
       return this.tokenList[this.token.index + 1]?.role !== "close" ?? true;
     },
     isBracket(): boolean {
-      return this.token.type === "bracket";
+      return this.tokenRef.type === "bracket";
     },
     isString(): boolean {
-      return this.token.type === "string";
+      return this.tokenRef.type === "string";
     },
     isClose(): boolean {
-      return this.token.role === "close";
+      return this.tokenRef.role === "close";
     },
     isCollapsed(): boolean {
-      return this.token.collapsed ?? false;
+      return (
+        this.tokenRef.type === "bracket" && (this.tokenRef.collapsed ?? false)
+      );
     },
     groupToken(): VJToken<"bracket"> | null {
       return this.tokenRef?.groupToken ?? null;
+    },
+    canCollapse(): boolean {
+      return this.tokenRef?.type === "bracket" && !!this.collapseBracket;
+    },
+    isHovered(): boolean {
+      return !!this.tokenRef?.hover || !!this.groupToken?.hover;
+    },
+    closeToken(): string {
+      return this.tokenRef.value === "["
+        ? "]"
+        : this.tokenRef.value === "{"
+        ? "}"
+        : "";
     },
   },
 });

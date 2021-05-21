@@ -1,0 +1,56 @@
+.vj {
+  // Base node
+  &__node {
+    display: block;
+    position: relative;
+
+    span {
+      display: inline-block;
+    }
+
+    // Node hover
+    &.hover {
+      // Bracket colors
+      @at-root .vj--collapsable-bracket & {
+        // Bracket color
+        .vj__value {
+          .vj-text {
+            color: $primary;
+          }
+        }
+      }
+
+      // Bracket bottom border
+      @at-root .vj--collapsable-bracket.vj--tablines & {
+        &:not(.collapsed) {
+          .vj__key::after {
+            content: "";
+            display: block;
+            position: absolute;
+            width: 110%;
+            bottom: -1px;
+            left: 0;
+            border-bottom: 1px solid $tab-border-color-active;
+          }
+        }
+      }
+    }
+  }
+
+  &__key,
+  &__value {
+    display: inline-block;
+    position: relative;
+  }
+
+  // Node value
+  &__value {
+    // Collapsable token
+    @at-root .vj__node.collapsable & .vj-text {
+      // Brackets hover
+      &:hover {
+        color: $primary;
+      }
+    }
+  }
+}

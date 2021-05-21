@@ -78,7 +78,7 @@ export default defineComponent({
   name: "App",
   data() {
     return {
-      depth: 5,
+      depth: 6,
       enableParser: true,
       options: {
         tablines: false,

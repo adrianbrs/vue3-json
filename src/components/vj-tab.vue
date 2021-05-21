@@ -1,6 +1,6 @@
 <template>
-  <span :class="['vj-el vj-el__tab', { 'vj-el__tab--lines': useTabLines }]">
-    <template
+  <span :class="['vj__tabs', { 'has-lines': tablines }]">
+    <!-- <template
       v-if="collapseButton && token.type === 'bracket' && token.role === 'open'"
     >
       <span
@@ -26,18 +26,20 @@
     </template>
     <template v-else>
       <span class="vj-el__tab-collapse-btn"></span>
-    </template>
+    </template> -->
 
     <span
       v-for="i in token.depth"
       :key="i"
       :class="[
-        'vj-el__tab-space',
+        'vj-space',
         {
           active: i === activeTabLine,
         },
       ]"
-    ></span>
+    >
+      <template v-for="i in tabSpaces" :key="i">&nbsp;</template>
+    </span>
   </span>
 </template>
 
@@ -56,18 +58,16 @@ export default defineComponent({
     },
   },
   setup(props) {
-    const propsRef = toRefs(props);
-    const { tablines, collapseButton } = toRefs(
-      inject(VJOptionsKey) as VJOptions
-    );
+    const { token: tokenRef } = toRefs(props);
+    const { tablines, tabSpaces } = toRefs(inject(VJOptionsKey) as VJOptions);
 
     const tokenList = inject(VJTokenListKey);
 
     return {
-      useTabLines: tablines,
-      collapseButton,
+      tablines,
       tokenList,
-      tokenRef: propsRef.token,
+      tokenRef,
+      tabSpaces,
     };
   },
   computed: {
@@ -80,17 +80,17 @@ export default defineComponent({
     },
   },
   methods: {
-    toggleCollapse() {
-      this.$emit("toggleCollapse");
-    },
-    changeHover(hover: boolean) {
-      if (this.tokenRef.type === "bracket") {
-        this.tokenRef.hover = hover;
-        if (this.tokenRef.groupToken) {
-          this.tokenRef.groupToken.hover = hover;
-        }
-      }
-    },
+    // toggleCollapse() {
+    //   this.$emit("toggleCollapse");
+    // },
+    // changeHover(hover: boolean) {
+    //   if (this.tokenRef.type === "bracket") {
+    //     this.tokenRef.hover = hover;
+    //     if (this.tokenRef.groupToken) {
+    //       this.tokenRef.groupToken.hover = hover;
+    //     }
+    //   }
+    // },
   },
 });
 </script>
