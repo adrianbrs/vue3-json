@@ -1,26 +1,32 @@
 <template>
   <span :class="['vj-el vj-el__tab', { 'vj-el__tab--lines': useTabLines }]">
-    <span
-      :class="[
-        'vj-el__tab-collapse-btn',
-        'vj-el--clickable',
-        { hover: tokenRef.hover },
-      ]"
-      @click="toggleCollapse"
-      @mouseenter="changeHover(true)"
-      @mouseleave="changeHover(false)"
+    <template
+      v-if="collapseButton && token.type === 'bracket' && token.role === 'open'"
     >
       <span
-        v-if="token.type === 'bracket' && token.role === 'open'"
         :class="[
-          'vj-arrow',
-          {
-            'vj-arrow--down': !token.collapsed,
-            'vj-arrow--right': token.collapsed,
-          },
+          'vj-el__tab-collapse-btn',
+          'vj-el--clickable',
+          { hover: tokenRef.hover },
         ]"
-      ></span>
-    </span>
+        @click="toggleCollapse"
+        @mouseenter="changeHover(true)"
+        @mouseleave="changeHover(false)"
+      >
+        <span
+          :class="[
+            'vj-arrow',
+            {
+              'vj-arrow--down': !token.collapsed,
+              'vj-arrow--right': token.collapsed,
+            },
+          ]"
+        ></span>
+      </span>
+    </template>
+    <template v-else>
+      <span class="vj-el__tab-collapse-btn"></span>
+    </template>
 
     <span
       v-for="i in token.depth"
@@ -29,7 +35,6 @@
         'vj-el__tab-space',
         {
           active: i === activeTabLine,
-          inner: activeTabLine >= 0 && i > activeTabLine,
         },
       ]"
     ></span>
@@ -38,11 +43,7 @@
 
 <script lang="ts">
 import { VJToken, VJTokenType } from "@/composables/useParser";
-import {
-  VJLineNumberWidthKey,
-  VJOptionsKey,
-  VJTokenListKey,
-} from "@/injection-keys";
+import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
 import { VJOptions } from "@/types";
 import { defineComponent, inject, PropType, toRefs } from "vue";
 
@@ -56,29 +57,26 @@ export default defineComponent({
   },
   setup(props) {
     const propsRef = toRefs(props);
-    const { tablines } = toRefs(inject(VJOptionsKey) as VJOptions);
+    const { tablines, collapseButton } = toRefs(
+      inject(VJOptionsKey) as VJOptions
+    );
 
     const tokenList = inject(VJTokenListKey);
-    const lineNumberWidth = inject(VJLineNumberWidthKey);
 
     return {
       useTabLines: tablines,
+      collapseButton,
       tokenList,
-      lineNumberWidth,
       tokenRef: propsRef.token,
     };
   },
   computed: {
     activeTabLine(): number {
-      let parent = this.token.parent;
+      let parent = this.tokenRef.parent;
       while (parent && !parent.hover) {
         parent = parent.parent;
       }
       return parent && parent.hover ? parent.depth + 1 : 0;
-    },
-    maxLineNum(): number {
-      if (!this.tokenList) return this.token.index;
-      return this.tokenList.value.length;
     },
   },
   methods: {

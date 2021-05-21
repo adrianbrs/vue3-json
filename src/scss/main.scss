@@ -29,9 +29,8 @@
   }
 
   &-helper {
-    display: block;
-    position: fixed;
     z-index: -99;
+    position: absolute;
     visibility: hidden;
     pointer-events: none;
     bottom: 0;
@@ -60,11 +59,31 @@
     max-height: 100%;
     max-width: 100%;
     overflow-y: auto;
+    display: flex;
 
     pre {
       display: inline-block;
       margin: 0;
       white-space: pre-wrap;
+    }
+
+    &__line-numbers {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      flex: 0 auto;
+      align-items: flex-end;
+      justify-content: flex-start;
+      text-align: right;
+
+      .vj-el__line-number {
+        margin: 0 4px;
+      }
+    }
+
+    &__view {
+      width: 100%;
+      min-height: 100%;
     }
 
     &.hoverable {
@@ -90,6 +109,14 @@
           padding-top: 0;
           padding-right: 0;
           padding-bottom: 0;
+        }
+      }
+    }
+
+    &--hover-block:not(.vj-el--collapsed) {
+      &.vj-el--open {
+        .vj-el__content {
+          border-bottom: 1px solid var(--vj-tab-border-color-active);
         }
       }
     }
@@ -129,6 +156,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        margin: 0 0.4em;
 
         .vj-arrow {
           transition: $base-transition;
@@ -162,7 +190,7 @@
       color: var(--vj-ellipsis-color);
     }
 
-    &__bracket {
+    &__bracket.vj-el--collapsable {
       .vj-el__value-text {
         transition: $base-transition;
 
@@ -179,7 +207,10 @@
 
     &__string {
       .vj-el__value-block {
-        color: var(--vj-string-color);
+        &,
+        a {
+          color: var(--vj-string-color);
+        }
       }
     }
 
@@ -187,6 +218,19 @@
       .vj-el__value-block {
         color: var(--vj-number-color);
       }
+    }
+
+    &__textarea {
+      display: block;
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      left: 0;
+      top: 0;
+      z-index: 2;
+      background-color: transparent;
+      overflow: hidden;
+      pointer-events: none;
     }
   }
 }

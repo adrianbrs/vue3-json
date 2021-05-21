@@ -1,35 +1,42 @@
 <template>
-  <div class="vj-app" style="display: flex">
-    <div style="padding: 0 3em 0 2em; text-align: left">
-      <pre>{{ scroll }}</pre>
-      <pre>{{ view }}</pre>
-      <pre>{{ startEntry }}</pre>
-      <pre>{{ endEntry }}</pre>
-    </div>
+  <div class="vj-app">
+    <div ref="viewContent" :class="['vj-content', { hoverable: isHoverable }]">
+      <div class="vj-content__line-numbers" v-if="showLineNumbers">
+        <span
+          class="vj-el__line-number"
+          v-for="line in lineNumberElements"
+          :key="line"
+          :style="{
+            ...nodeStyle,
+            width: `${lineNumWidth}px`,
+            flex: `0 0 ${heightList[line]}px`,
+          }"
+        >
+          <pre>{{ line }}</pre>
+        </span>
 
-    <div
-      ref="viewContent"
-      :class="['vj-content', { hoverable: isHoverable }]"
-      style="border: 1px solid"
-    >
+        <!-- Helper element to get max line number width -->
+        <span class="vj-helper">
+          <span class="vj-helper__el">
+            <pre ref="lineNumWidthRef" class="vj-el__line-number">{{
+              elements[elements.length - 1].index
+            }}</pre>
+          </span>
+        </span>
+      </div>
       <div class="vj-content__view" :style="viewStyle">
+        <!-- <textarea class="vj-el__textarea"></textarea> -->
+
         <vj-node
           v-for="el in renderElements"
           :key="el.index"
           :token="el"
           :style="nodeStyle"
-          :show-length="showLength"
-          :show-quotes="showQuotes"
           v-model:collapsed="el.collapsed"
           @update:collapsed="(collapsed) => updateCollapse(el.index, collapsed)"
           @mounted="onElementMounted"
         ></vj-node>
       </div>
-    </div>
-
-    <!-- Hidden Helpers :D -->
-    <div class="vj-helper">
-      <span ref="lineNumberWidthRef">{{ elements.length - 1 }}</span>
     </div>
   </div>
 </template>
@@ -38,20 +45,18 @@
 import {
   computed,
   defineComponent,
+  PropType,
   provide,
   reactive,
   ref,
-  toRef,
+  ToRefs,
   toRefs,
   watch,
 } from "vue";
 import { VJToken, useParser, VJTokenType } from "@/composables/useParser";
-import {
-  VJLineNumberWidthKey,
-  VJOptionsKey,
-  VJTokenListKey,
-} from "@/injection-keys";
-import vjNodeVue from "./components/vj-node.vue";
+import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
+import vjNodeVue from "@/components/vj-node.vue";
+import { VJOptions, VJValueParser } from "@/types";
 
 export default defineComponent({
   name: "vue-json",
@@ -84,6 +89,19 @@ export default defineComponent({
       type: Boolean,
       default: () => true,
     },
+    collapseBracket: {
+      type: Boolean,
+      default: () => true,
+    },
+    collapseButton: {
+      type: Boolean,
+      default: () => true,
+    },
+    valueParser: Function as PropType<VJValueParser>,
+    lineNumbers: {
+      type: Boolean,
+      default: () => true,
+    },
   },
   components: {
     "vj-node": vjNodeVue,
@@ -105,20 +123,25 @@ export default defineComponent({
       scrollDirty: false,
       prerender: 1,
       heightList: [] as number[],
+      lineNumWidth: 0,
     };
   },
   setup(props) {
     const propsRef = toRefs(props);
-    const { modelValue, depth, hoverable, lineHeight } = propsRef;
+    const { modelValue, depth, hoverable, lineNumbers } = propsRef;
 
-    // Provide helpers
-    const lineNumberWidth = ref<number>(0);
-    provide(VJLineNumberWidthKey, lineNumberWidth);
+    // Line number max width ref
+    const lineNumWidthRef = ref<HTMLElement | null>(null);
 
     const options = reactive({
       depth: depth,
       tablines: propsRef.tablines,
-    });
+      showQuotes: propsRef.showQuotes,
+      showLength: propsRef.showLength,
+      valueParser: propsRef.valueParser,
+      collapseBracket: propsRef.collapseBracket,
+      collapseButton: propsRef.collapseButton,
+    } as ToRefs<VJOptions>);
 
     // Provide plugin props
     provide(VJOptionsKey, options);
@@ -128,7 +151,7 @@ export default defineComponent({
     }));
 
     const elements = ref(useParser(modelValue.value, parserOptions.value));
-    provide(VJTokenListKey, elements);
+    provide(VJTokenListKey, elements as unknown as VJToken<VJTokenType>[]);
 
     // Watch model value
     watch(modelValue, (val) => {
@@ -147,9 +170,8 @@ export default defineComponent({
       viewContent,
       elements,
       isHoverable: hoverable,
-      lineNumberWidth,
-      // showLength: propsRef.showLength,
-      // showQuotes: propsRef.showQuotes,
+      showLineNumbers: lineNumbers,
+      lineNumWidthRef,
     };
   },
   created() {
@@ -165,11 +187,7 @@ export default defineComponent({
     // Add content scroll event listener
     this.viewContent.addEventListener("scroll", this.onScroll);
 
-    // Helpers
-    if (this.$refs.lineNumberWidthRef) {
-      this.lineNumberWidth =
-        (this.$refs.lineNumberWidthRef as HTMLElement).offsetWidth ?? 0;
-    }
+    this.updateLineNumWidth();
   },
   computed: {
     visibleElements(): {
@@ -211,6 +229,9 @@ export default defineComponent({
       const end = this.endEntry;
       return this.visibleElements.slice(start, end).map((v) => v.token);
     },
+    lineNumberElements(): number[] {
+      return this.renderElements.map((el) => el.index);
+    },
     nodeStyle(): Record<string, string> {
       const startIndex = this.startEntry ?? 0;
       const top = this.visibleElements[startIndex].top ?? 0;
@@ -232,6 +253,15 @@ export default defineComponent({
     },
   },
   methods: {
+    updateLineNumWidth() {
+      // Get max line number width
+      if (this.lineNumWidthRef && this.lineNumWidthRef.offsetWidth) {
+        const width = this.lineNumWidthRef.offsetWidth;
+        if (width > this.lineNumWidth) {
+          this.lineNumWidth = width;
+        }
+      }
+    },
     updateViewSize() {
       if (!this.viewContent) return;
 
@@ -263,6 +293,7 @@ export default defineComponent({
         requestAnimationFrame(() => {
           this.scrollDirty = false;
           this.updateEntries();
+          this.updateLineNumWidth();
         });
       }
     },
@@ -281,8 +312,9 @@ export default defineComponent({
         if (
           parent.collapsed ||
           (parent.groupToken && parent.groupToken.collapsed)
-        )
+        ) {
           return true;
+        }
         parent = parent.parent;
       }
       return false;
@@ -306,16 +338,26 @@ export default defineComponent({
       }
 
       // Childrens
-      let i = index;
-      let next = this.elements[++i];
+      let i = index + 1;
+      let next = this.elements[i];
 
       while (next && next.depth > depth) {
-        if (collapsed) {
+        if (
+          collapsed ||
+          (next.parent && this.isCollapsed(next.parent)) ||
+          (next.collapsed && next.role === "close")
+        ) {
           next.visible = false;
-        } else if (next.role === "open" || !this.isCollapsed(next)) {
+        } else if (
+          next.depth === depth + 1 ||
+          !next.parent ||
+          !this.isCollapsed(next.parent)
+        ) {
           next.visible = true;
         }
-        next = this.elements[++i];
+
+        i++;
+        next = this.elements[i];
       }
     },
     updateEntries() {
