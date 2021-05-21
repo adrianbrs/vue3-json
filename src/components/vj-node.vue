@@ -4,7 +4,7 @@
       nodeClasses,
       classes,
       {
-        'vj-el--collapsable': collapseBracket,
+        collapsable: collapseBracket,
       },
     ]"
   >

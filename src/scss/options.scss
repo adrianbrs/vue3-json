@@ -1,17 +1,21 @@
 $base-transition: all 0.1s ease-in-out;
 
 // Colors
+$code-bg: #fff;
+$side-bg: #eee;
 $string-color: green;
 $number-color: blue;
 $bracket-hover-color: #0af;
 $ellipsis-color: #999;
-$tab-border-color: #ccc;
+$tab-border-color: #ddd;
 $tab-border-color-active: #{$bracket-hover-color};
 $line-hover-color: rgba(#0af, 0.2);
 $block-hover-color: rgba(#0af, 0.1);
 $comment-color: #acacac;
 
 :root {
+  --vj-side-bg: #{$side-bg};
+  --vj-code-bg: #{$code-bg};
   --vj-string-color: #{$string-color};
   --vj-number-color: #{$number-color};
   --vj-bracket-hover-color: #{$bracket-hover-color};

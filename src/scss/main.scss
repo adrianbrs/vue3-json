@@ -60,6 +60,7 @@
     max-width: 100%;
     overflow-y: auto;
     display: flex;
+    background-color: var(--vj-code-bg);
 
     pre {
       display: inline-block;
@@ -75,6 +76,7 @@
       align-items: flex-end;
       justify-content: flex-start;
       text-align: right;
+      background-color: var(--vj-side-bg);
 
       .vj-el__line-number {
         margin: 0 4px;
@@ -230,7 +232,6 @@
       z-index: 2;
       background-color: transparent;
       overflow: hidden;
-      pointer-events: none;
     }
   }
 }

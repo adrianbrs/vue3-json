@@ -1,48 +1,71 @@
 <template>
-  <h1>Vue3Json Demo</h1>
+  <div class="page raw">
+    <h4>Raw</h4>
 
-  <input type="number" v-model="options.depth" />
-
-  <div>
-    <input type="checkbox" v-model="options.tablines" />
-    <span>Use Tab Lines</span>
+    <textarea class="full" v-model="jsonRaw"></textarea>
   </div>
 
-  <div>
-    <input type="checkbox" v-model="options.showLength" />
-    <span>Show Length</span>
-  </div>
+  <div class="page pretty">
+    <h4>Vue3Json</h4>
 
-  <div>
-    <input type="checkbox" v-model="options.showQuotes" />
-    <span>Show Quotes</span>
-  </div>
-
-  <div>
-    <input type="checkbox" v-model="options.collapseButton" />
-    <span>Collapse Buttons</span>
-  </div>
-
-  <div>
-    <input type="checkbox" v-model="options.collapseBracket" />
-    <span>Collapse Brackets</span>
-  </div>
-
-  <div>
-    <input type="checkbox" v-model="options.lineNumbers" />
-    <span>Line Numbers</span>
-  </div>
-
-  <div style="display: flex">
     <vue-json
       v-model="json"
       :depth="depthNumber"
-      :value-parser="valueParser"
+      :value-parser="enableParser ? valueParser : null"
       v-bind="options"
-      style="height: 600px; width: 900px"
+      class="full"
     />
+  </div>
 
-    <textarea v-model="jsonRaw" cols="50" rows="10"></textarea>
+  <div class="page options center">
+    <h1>Vue Jsonify</h1>
+
+    <div class="inputs">
+      <div class="input header">
+        <span>Max Depth: </span>
+        <input type="number" v-model="depth" />
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.tablines" />
+        <span>Use Tab Lines</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.showLength" />
+        <span>Show Length</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.showQuotes" />
+        <span>Show Quotes</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.collapseButton" />
+        <span>Collapse Buttons</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.collapseBracket" />
+        <span>Collapse Brackets</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.lineNumbers" />
+        <span>Line Numbers</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.virtualList" />
+        <span>Virtual List (Performance)</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="enableParser" />
+        <span>Custom Parser</span>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -55,22 +78,24 @@ export default defineComponent({
   name: "App",
   data() {
     return {
+      depth: 5,
+      enableParser: true,
       options: {
-        depth: 3,
-        tablines: true,
+        tablines: false,
         showLength: true,
         showQuotes: true,
         collapseButton: true,
         collapseBracket: true,
         lineNumbers: true,
-      } as VJOptions,
+        virtualList: false,
+      } as Partial<VJOptions>,
       debounce: null as number | null,
       json: example1,
     };
   },
   computed: {
     depthNumber(): number {
-      return +this.options.depth;
+      return +this.depth;
     },
     jsonRaw: {
       get(): string {
@@ -110,12 +135,111 @@ export default defineComponent({
 </script>
 
 <style lang="scss">
+html,
+body {
+  margin: 0;
+  padding: 0;
+  // overflow: hidden;
+  font-size: 12pt;
+}
 #app {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+
+  h1 {
+    margin-top: 2em;
+  }
+
+  .page {
+    flex-grow: 1;
+    flex-basis: 0;
+    max-height: 100%;
+    padding: 1em;
+
+    h4,
+    h5 {
+      text-align: center;
+    }
+
+    &.pretty {
+      .vj-app {
+        max-height: 90vh;
+        border-radius: 0.25em;
+        border: 1px solid #ccc;
+      }
+    }
+
+    &.raw {
+      textarea {
+        border-radius: 0.25em;
+        border: 1px solid #ccc;
+        max-height: 90vh;
+      }
+    }
+
+    &.center {
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .inputs {
+      text-align: left;
+      width: 300px;
+
+      .input {
+        margin: 0.25em;
+
+        &.header {
+          margin-bottom: 1em;
+        }
+      }
+    }
+  }
+
+  .full {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+@media screen and (max-width: 1024px) {
+  html,
+  body {
+    overflow-y: auto;
+  }
+
+  #app {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .page {
+    max-height: 80vh;
+
+    &.pretty {
+      order: 1;
+
+      .vj-app {
+        height: 80vh !important;
+      }
+    }
+    &.raw {
+      order: 2;
+
+      textarea {
+        height: 80vh !important;
+      }
+    }
+    &.options {
+      order: 3;
+    }
+  }
 }
 </style>

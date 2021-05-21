@@ -25,8 +25,6 @@
         </span>
       </div>
       <div class="vj-content__view" :style="viewStyle">
-        <!-- <textarea class="vj-el__textarea"></textarea> -->
-
         <vj-node
           v-for="el in renderElements"
           :key="el.index"
@@ -102,6 +100,10 @@ export default defineComponent({
       type: Boolean,
       default: () => true,
     },
+    virtualList: {
+      type: Boolean,
+      default: () => false,
+    },
   },
   components: {
     "vj-node": vjNodeVue,
@@ -120,7 +122,7 @@ export default defineComponent({
       },
       startEntry: 0,
       endEntry: 0,
-      scrollDirty: false,
+      updatingView: false,
       prerender: 1,
       heightList: [] as number[],
       lineNumWidth: 0,
@@ -128,10 +130,11 @@ export default defineComponent({
   },
   setup(props) {
     const propsRef = toRefs(props);
-    const { modelValue, depth, hoverable, lineNumbers } = propsRef;
+    const { modelValue, depth, hoverable, lineNumbers, virtualList } = propsRef;
 
     // Line number max width ref
     const lineNumWidthRef = ref<HTMLElement | null>(null);
+    const viewRef = ref<HTMLElement | null>(null);
 
     const options = reactive({
       depth: depth,
@@ -172,10 +175,12 @@ export default defineComponent({
       isHoverable: hoverable,
       showLineNumbers: lineNumbers,
       lineNumWidthRef,
+      viewRef,
+      useVirtualList: virtualList,
     };
   },
   created() {
-    this.elements.forEach((el) => {
+    this.elements.forEach(() => {
       this.heightList.push(this.lineHeight);
     });
   },
@@ -184,8 +189,9 @@ export default defineComponent({
     this.updateViewSize();
     this.updateEntries();
 
-    // Add content scroll event listener
-    this.viewContent.addEventListener("scroll", this.onScroll);
+    // Listen to view changes
+    this.viewContent.addEventListener("scroll", this.updateView);
+    this.viewContent.addEventListener("resize", this.updateView);
 
     this.updateLineNumWidth();
   },
@@ -225,14 +231,19 @@ export default defineComponent({
       return els;
     },
     renderElements(): VJToken<VJTokenType>[] {
-      const start = this.startEntry ?? 0;
-      const end = this.endEntry;
-      return this.visibleElements.slice(start, end).map((v) => v.token);
+      let elements = this.visibleElements;
+
+      // Splice for virtual list
+      if (this.useVirtualList) {
+        elements = elements.slice(this.startEntry, this.endEntry);
+      }
+      return elements.map((v) => v.token);
     },
     lineNumberElements(): number[] {
       return this.renderElements.map((el) => el.index);
     },
     nodeStyle(): Record<string, string> {
+      if (!this.useVirtualList) return {};
       const startIndex = this.startEntry ?? 0;
       const top = this.visibleElements[startIndex].top ?? 0;
 
@@ -241,6 +252,8 @@ export default defineComponent({
       };
     },
     viewStyle(): Record<string, string> {
+      if (!this.useVirtualList) return {};
+
       return {
         height: `${this.scroll.height}px`,
       };
@@ -248,8 +261,14 @@ export default defineComponent({
   },
   watch: {
     visibleElements() {
-      this.updateViewSize();
-      this.updateEntries();
+      this.updateView();
+    },
+    useVirtualList(use: boolean) {
+      if (use) {
+        this.$nextTick(() => {
+          this.updateView();
+        });
+      }
     },
   },
   methods: {
@@ -284,14 +303,19 @@ export default defineComponent({
         bottom: top + height,
       };
     },
-    onScroll() {
+    updateView() {
+      if (!this.useVirtualList) return;
+
       this.updateViewSize();
 
-      if (!this.scrollDirty) {
-        this.scrollDirty = true;
+      if (!this.updatingView) {
+        this.updatingView = true;
 
         requestAnimationFrame(() => {
-          this.scrollDirty = false;
+          this.updatingView = false;
+
+          // Update view size again to calculate scroll bottom
+          this.updateViewSize();
           this.updateEntries();
           this.updateLineNumWidth();
         });
@@ -406,7 +430,8 @@ export default defineComponent({
     },
   },
   beforeUnmount() {
-    this.viewContent?.removeEventListener("scroll", this.onScroll);
+    this.viewContent?.removeEventListener("scroll", this.updateView);
+    this.viewContent?.removeEventListener("resize", this.updateView);
   },
 });
 </script>
