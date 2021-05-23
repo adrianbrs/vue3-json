@@ -1,17 +1,13 @@
 .vj {
   // Base node
   &__node {
-    display: block;
+    display: flex;
     position: relative;
 
-    span {
-      display: inline-block;
-    }
-
     // Node hover
-    &.hover {
+    &.vj--hover {
       // Bracket colors
-      @at-root .vj--collapsable-bracket & {
+      @at-root .vj__window.vj--collapsable-brackets & {
         // Bracket color
         .vj__value {
           .vj-text {
@@ -21,8 +17,8 @@
       }
 
       // Bracket bottom border
-      @at-root .vj--collapsable-bracket.vj--tablines & {
-        &:not(.collapsed) {
+      @at-root .vj__window.vj--collapsable-brackets.vj--tablines & {
+        &:not(.vj--collapsed) {
           .vj__key::after {
             content: "";
             display: block;
@@ -41,12 +37,26 @@
   &__value {
     display: inline-block;
     position: relative;
+
+    span {
+      display: inline-block;
+    }
+  }
+
+  // Node key
+  &__key {
+    white-space: nowrap;
   }
 
   // Node value
   &__value {
+    // Single line nodes
+    @at-root .vj__view.vj--single-line {
+      white-space: nowrap;
+    }
+
     // Collapsable token
-    @at-root .vj__node.collapsable & .vj-text {
+    @at-root .vj__window.vj--collapsable-brackets & .vj-text {
       // Brackets hover
       &:hover {
         color: $primary;

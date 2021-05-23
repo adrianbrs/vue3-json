@@ -1,13 +1,8 @@
-import { computed, Ref, SetupContext } from "@vue/runtime-core";
+import { Ref, SetupContext } from "@vue/runtime-core";
 
 export function useCollapsable(collapsed: Ref<boolean>, context: SetupContext) {
-  const classes = computed(() => ({
-    collapsed: collapsed.value,
-  }));
-
   const toggleCollapse = () => {
     context.emit("update:collapsed", !collapsed.value);
   };
-
-  return { classes, toggleCollapse };
+  return { toggleCollapse };
 }

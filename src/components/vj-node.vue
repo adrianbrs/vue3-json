@@ -1,14 +1,5 @@
 <template>
-  <span
-    :class="[
-      nodeClasses,
-      classes,
-      {
-        collapsable: canCollapse,
-        hover: isHovered,
-      },
-    ]"
-  >
+  <span :class="nodeClasses">
     <vj-tab :token="token" @toggleCollapse="toggleCollapse" />
 
     <span class="vj__key" v-if="token.key">
@@ -20,7 +11,7 @@
 
     <span v-if="token.key" class="vj-space">&nbsp;</span>
 
-    <span :class="['vj__value', `vj-${token.type}`]">
+    <span :class="valueClasses">
       <span class="vj-quote" v-if="isString">"</span>
 
       <!-- Clickable Bracket -->
@@ -48,7 +39,7 @@
       <!-- / Clickable Bracket -->
 
       <span class="vj-quote" v-if="isString">"</span>
-      <span class="vj-comma" v-if="hasNext">,</span>
+      <span class="vj-comma" v-if="hasNext && (isClose || isCollapsed)">,</span>
 
       <!-- Show length -->
       <span class="vj-comment" v-if="isCollapsed && showLength"
@@ -61,7 +52,7 @@
 <script lang="ts">
 import { defineComponent, inject, PropType, toRefs } from "vue";
 import { useCollapsable } from "@/composables/useCollapsable";
-import { VJToken, VJTokenType } from "@/composables/useParser";
+import { VJToken, VJTokenType, VJTreeTokenType } from "@/composables/useParser";
 import vjTabVue from "./vj-tab.vue";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
 import { VJOptions, VJValueParser } from "@/types";
@@ -90,15 +81,6 @@ export default defineComponent({
       inject(VJOptionsKey) as VJOptions
     );
 
-    let options = {
-      toggleColapse: null,
-      classes: [],
-    } as Record<string, unknown>;
-
-    if (props.token.type === "bracket") {
-      options = useCollapsable(propsRef.collapsed, context);
-    }
-
     return {
       tokenRef,
       tokenList,
@@ -106,13 +88,12 @@ export default defineComponent({
       showQuotes,
       valueParser: valueParser as unknown as VJValueParser,
       collapseBracket,
-      toggleCollapse: null,
-      classes: [],
-      ...options,
+      isCollapsed: propsRef.collapsed,
+      ...useCollapsable(propsRef.collapsed, context),
     };
   },
   mounted() {
-    this.$emit("ready", this.$el, this.token);
+    this.$emit("ready", this.$el?.clientHeight, this.token.index);
   },
   methods: {
     onClick() {
@@ -128,16 +109,16 @@ export default defineComponent({
     onMouseOver() {
       if (this.canCollapse && this.tokenRef) {
         this.tokenRef.hover = true;
-        if (this.groupToken) {
-          this.groupToken.hover = true;
+        if (this.sibling) {
+          this.sibling.hover = true;
         }
       }
     },
     onMouseOut() {
       if (this.canCollapse && this.tokenRef) {
         this.tokenRef.hover = false;
-        if (this.groupToken) {
-          this.groupToken.hover = false;
+        if (this.sibling) {
+          this.sibling.hover = false;
         }
       }
     },
@@ -146,26 +127,41 @@ export default defineComponent({
     nodeClasses(): Record<string, boolean> {
       return {
         vj__node: true,
-        hover: this.tokenRef.hover ?? false,
-        [this.tokenRef.type]: true,
-        [this.tokenRef.role as string]: !!this.tokenRef.role as boolean,
+        "vj--hover": !!this.tokenRef.hover,
+        "vj--collapsed": this.isCollapsed,
       };
     },
-    hasNext(): boolean {
-      if (!this.tokenList) return true;
-      if (this.token.role === "open") {
-        if (this.isCollapsed && this.groupToken) {
-          return (
-            this.tokenList[this.groupToken.index + 1]?.role !== "close" ?? true
-          );
-        }
-        return false;
-      }
-      if (this.token.index >= this.tokenList.length - 1) return false;
-      return this.tokenList[this.token.index + 1]?.role !== "close" ?? true;
+    valueClasses(): Record<string, boolean> {
+      return {
+        vj__value: true,
+        [`vj-${this.tokenRef.type}`]: true,
+        [`vj-${this.tokenRef.role}`]: !!this.tokenRef.role,
+      };
     },
-    isBracket(): boolean {
-      return this.tokenRef.type === "bracket";
+    // hasNext(): boolean {
+    //   if (!this.tokenList) return true;
+    //   if (this.token.role === "open") {
+    //     if (this.isCollapsed && this.groupToken) {
+    //       return (
+    //         this.tokenList[this.groupToken.index + 1]?.role !== "close" ?? true
+    //       );
+    //     }
+    //     return false;
+    //   }
+    //   if (this.token.index >= this.tokenList.length - 1) return false;
+    //   return this.tokenList[this.token.index + 1]?.role !== "close" ?? true;
+    // },
+    hasNext(): boolean {
+      return this.tokenRef?.hasNext ?? true;
+    },
+    sibling(): VJToken<VJTreeTokenType> | null {
+      if (!this.tokenList || !this.isTree) return null;
+      return this.tokenList[
+        (this.tokenRef as VJToken<VJTreeTokenType>).siblingIndex
+      ] as VJToken<VJTreeTokenType>;
+    },
+    isTree(): boolean {
+      return ["object", "array"].includes(this.tokenRef.type);
     },
     isString(): boolean {
       return this.tokenRef.type === "string";
@@ -173,19 +169,11 @@ export default defineComponent({
     isClose(): boolean {
       return this.tokenRef.role === "close";
     },
-    isCollapsed(): boolean {
-      return (
-        this.tokenRef.type === "bracket" && (this.tokenRef.collapsed ?? false)
-      );
-    },
-    groupToken(): VJToken<"bracket"> | null {
-      return this.tokenRef?.groupToken ?? null;
-    },
     canCollapse(): boolean {
-      return this.tokenRef?.type === "bracket" && !!this.collapseBracket;
+      return this.isTree && !!this.collapseBracket;
     },
     isHovered(): boolean {
-      return !!this.tokenRef?.hover || !!this.groupToken?.hover;
+      return !!this.tokenRef?.hover || !!this.sibling?.hover;
     },
     closeToken(): string {
       return this.tokenRef.value === "["

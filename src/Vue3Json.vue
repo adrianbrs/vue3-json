@@ -1,13 +1,13 @@
 <template>
   <div class="vj-app">
-    <div ref="viewContent" :class="['vj__window', { hoverable: isHoverable }]">
+    <div ref="viewContent" :class="windowClasses">
       <div class="vj-content__line-numbers" v-if="false">
         <span
           class="vj-el__line-number"
           v-for="line in lineNumberElements"
           :key="line"
           :style="{
-            ...nodeStyle,
+            ...viewContentStyle,
             width: `${lineNumWidth}px`,
             flex: `0 0 ${heightList[line]}px`,
           }"
@@ -25,25 +25,19 @@
         </span>
       </div>
 
-      <div
-        :class="[
-          'vj__view',
-          {
-            'vj--collapsable-bracket': canBracketCollapse,
-            'vj--tablines': hasTablines,
-          },
-        ]"
-        :style="viewStyle"
-      >
-        <vj-node
-          v-for="el in renderElements"
-          :key="el.index"
-          :token="el"
-          :style="nodeStyle"
-          v-model:collapsed="el.collapsed"
-          @update:collapsed="(collapsed) => updateCollapse(el.index, collapsed)"
-          @ready="onElementReady"
-        ></vj-node>
+      <div class="vj__view" :style="viewStyle">
+        <div class="vj__view-content" :style="viewContentStyle">
+          <vj-node
+            v-for="el in renderElements"
+            :key="el.index"
+            :token="el"
+            v-model:collapsed="el.collapsed"
+            @update:collapsed="
+              (collapsed) => updateCollapse(el.index, collapsed)
+            "
+            @ready="onElementReady"
+          ></vj-node>
+        </div>
       </div>
     </div>
   </div>
@@ -61,10 +55,16 @@ import {
   toRefs,
   watch,
 } from "vue";
-import { VJToken, useParser, VJTokenType } from "@/composables/useParser";
+import {
+  VJToken,
+  useParser,
+  VJTokenType,
+  VJTreeTokenType,
+} from "@/composables/useParser";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
-import vjNodeVue from "@/components/vj-node.vue";
 import { VJOptions, VJValueParser } from "@/types";
+import ResizeObserver from "resize-observer-polyfill";
+import vjNodeVue from "@/components/vj-node.vue";
 
 export default defineComponent({
   name: "vue-json",
@@ -87,7 +87,7 @@ export default defineComponent({
     },
     lineHeight: {
       type: Number,
-      default: () => 23,
+      default: () => 17,
     },
     showLength: {
       type: Boolean,
@@ -118,6 +118,10 @@ export default defineComponent({
       type: Number,
       default: () => 2,
     },
+    singleLine: {
+      type: Boolean,
+      default: () => true,
+    },
   },
   components: {
     "vj-node": vjNodeVue,
@@ -131,15 +135,16 @@ export default defineComponent({
       },
       view: {
         height: 0,
-        top: 0,
-        bottom: 0,
+        width: 0,
       },
+      resizeObserver: null as ResizeObserver | null,
       startEntry: 0,
       endEntry: 0,
       updatingView: false,
       prerender: 1,
       heightList: [] as number[],
       lineNumWidth: 0,
+      loadedNodes: new Set() as Set<number>,
     };
   },
   setup(props) {
@@ -152,6 +157,7 @@ export default defineComponent({
       virtualList,
       collapseBracket: canBracketCollapse,
       tablines: hasTablines,
+      singleLine: isSingleLine,
     } = propsRef;
 
     // Line number max width ref
@@ -202,6 +208,7 @@ export default defineComponent({
       useVirtualList: virtualList,
       canBracketCollapse,
       hasTablines,
+      isSingleLine,
     };
   },
   created() {
@@ -212,13 +219,18 @@ export default defineComponent({
   mounted() {
     if (!this.viewContent) return;
     this.updateViewSize();
-    this.updateEntries();
-
-    // Listen to view changes
-    this.viewContent.addEventListener("scroll", this.updateView);
-    this.viewContent.addEventListener("resize", this.updateView);
-
     this.updateLineNumWidth();
+
+    if (this.useVirtualList) {
+      this.updateEntries();
+    }
+
+    // Listen to view scroll
+    this.viewContent.addEventListener("scroll", this.updateView);
+
+    // Create view resize observer
+    this.resizeObserver = new ResizeObserver(this.onViewResize);
+    this.resizeObserver.observe(this.viewContent);
   },
   computed: {
     visibleElements(): {
@@ -267,7 +279,15 @@ export default defineComponent({
     lineNumberElements(): number[] {
       return this.renderElements.map((el) => el.index);
     },
-    nodeStyle(): Record<string, string> {
+    windowClasses(): Record<string, boolean | unknown> {
+      return {
+        vj__window: true,
+        "vj--collapsable-brackets": this.canBracketCollapse,
+        "vj--tablines": this.hasTablines,
+        "vj--single-line": this.isSingleLine,
+      };
+    },
+    viewContentStyle(): Record<string, string> {
       if (!this.useVirtualList) return {};
       const startIndex = this.startEntry ?? 0;
       const top = this.visibleElements[startIndex].top ?? 0;
@@ -286,7 +306,9 @@ export default defineComponent({
   },
   watch: {
     visibleElements() {
-      this.updateView();
+      this.$nextTick(() => {
+        this.updateView();
+      });
     },
     useVirtualList(use: boolean) {
       if (use) {
@@ -297,93 +319,100 @@ export default defineComponent({
     },
   },
   methods: {
+    onViewResize(entries: ResizeObserverEntry[]) {
+      if (!this.useVirtualList) return;
+      const entry = entries[0];
+
+      if (entry) {
+        this.$nextTick(() => {
+          this.updateView();
+
+          // Clear loaded nodes set
+          if (this.loadedNodes.size) {
+            this.loadedNodes.clear();
+          }
+        });
+      }
+    },
     updateLineNumWidth() {
       // Get max line number width
       if (this.lineNumWidthRef && this.lineNumWidthRef.offsetWidth) {
         const width = this.lineNumWidthRef.offsetWidth;
-        if (width > this.lineNumWidth) {
-          this.lineNumWidth = width;
-        }
+        this.lineNumWidth = width;
       }
     },
     updateViewSize() {
       if (!this.viewContent) return;
+      const { clientHeight, clientWidth, scrollTop, scrollHeight } =
+        this.viewContent;
 
-      const height = this.viewContent.clientHeight;
-      const scrollTop = this.viewContent.scrollTop;
-      const scrollHeight = this.viewContent.scrollHeight;
       this.scroll = {
         top: scrollTop,
         height: this.visibleElements
-          ? this.visibleElements[this.visibleElements.length - 1].bottom
+          ? this.visibleElements[this.visibleElements.length - 1]?.bottom
           : scrollHeight,
-        end: scrollTop + height,
+        end: scrollTop + clientHeight,
       };
 
-      const top = this.viewContent.offsetTop;
-
       this.view = {
-        height,
-        top,
-        bottom: top + height,
+        height: clientHeight,
+        width: clientWidth,
       };
     },
     updateView() {
       if (!this.useVirtualList) return;
 
-      this.updateViewSize();
-
+      // Update view only after each animation frame
       if (!this.updatingView) {
         this.updatingView = true;
-
         requestAnimationFrame(() => {
           this.updatingView = false;
 
           // Update view size again to calculate scroll bottom
           this.updateViewSize();
           this.updateEntries();
-          this.updateLineNumWidth();
         });
       }
     },
-    onElementReady(el: HTMLElement, token: VJToken<VJTokenType>) {
-      if (el && typeof el.clientHeight !== "undefined") {
-        this.heightList[token.index] = el.clientHeight;
+    onElementReady(height: number, index: number) {
+      if (this.loadedNodes.has(index)) return;
+      if (typeof height !== "undefined") {
+        this.heightList[index] = height;
+        this.loadedNodes.add(index);
       }
     },
-    isCollapsed(el: VJToken<VJTokenType>) {
-      if (!el) return true;
-      if (el.collapsed || (el.groupToken && el.groupToken.collapsed))
-        return true;
-
-      let parent = el.parent;
-      while (parent) {
-        if (
-          parent.collapsed ||
-          (parent.groupToken && parent.groupToken.collapsed)
-        ) {
-          return true;
-        }
-        parent = parent.parent;
+    isCollapsed(el: VJToken<VJTokenType> | null): boolean {
+      if (!el) return false;
+      if (!["array", "object"].includes(el.type)) {
+        return this.isCollapsed(el.parent);
       }
-      return false;
+      const tree = el as VJToken<VJTreeTokenType>;
+      const sibling = this.elements[
+        tree.siblingIndex
+      ] as VJToken<VJTreeTokenType>;
+
+      if (tree.collapsed || sibling.collapsed) return true;
+
+      return this.isCollapsed(tree.parent);
     },
     updateCollapse(index: number, collapsed: boolean): void {
-      const el = this.elements[index];
-      if (el.role === "close" && el.groupToken) {
-        return this.updateCollapse(el.groupToken.index, collapsed);
+      const el = this.elements[index] as VJToken<VJTreeTokenType>;
+      console.log(index, el.siblingIndex);
+      if (!["array", "object"].includes(el.type)) return;
+      if (el.role === "close") {
+        return this.updateCollapse(el.siblingIndex, collapsed);
       }
       const { depth } = el;
+      const sibling = this.elements[
+        el.siblingIndex
+      ] as VJToken<VJTreeTokenType>;
+
+      // Collapse tokens
       el.collapsed = collapsed;
+      sibling.collapsed = collapsed;
 
-      // Change group token collapse
-      if (el.groupToken) {
-        const { groupToken } = el;
-        groupToken.collapsed = collapsed;
-
-        if (groupToken.role === "close") {
-          groupToken.visible = !collapsed;
-        }
+      if (sibling.role === "close") {
+        sibling.visible = !collapsed;
       }
 
       // Childrens
@@ -456,7 +485,7 @@ export default defineComponent({
   },
   beforeUnmount() {
     this.viewContent?.removeEventListener("scroll", this.updateView);
-    this.viewContent?.removeEventListener("resize", this.updateView);
+    this.resizeObserver?.unobserve(this.viewContent as HTMLElement);
   },
 });
 </script>
