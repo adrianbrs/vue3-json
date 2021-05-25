@@ -1,5 +1,5 @@
 <template>
-  <span :class="['vj__tabs', { 'has-lines': tablines }]">
+  <span class="vj__tabs">
     <!-- <template
       v-if="collapseButton && token.type === 'bracket' && token.role === 'open'"
     >
@@ -78,19 +78,6 @@ export default defineComponent({
       }
       return parent && parent.hover ? parent.depth + 1 : 0;
     },
-  },
-  methods: {
-    // toggleCollapse() {
-    //   this.$emit("toggleCollapse");
-    // },
-    // changeHover(hover: boolean) {
-    //   if (this.tokenRef.type === "bracket") {
-    //     this.tokenRef.hover = hover;
-    //     if (this.tokenRef.groupToken) {
-    //       this.tokenRef.groupToken.hover = hover;
-    //     }
-    //   }
-    // },
   },
 });
 </script>

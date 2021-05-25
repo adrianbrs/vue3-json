@@ -4,6 +4,11 @@
     display: flex;
     position: relative;
 
+    // Single line nodes
+    @at-root .vj__window.vj--single-line & {
+      white-space: nowrap;
+    }
+
     // Node hover
     &.vj--hover {
       // Bracket colors
@@ -50,11 +55,6 @@
 
   // Node value
   &__value {
-    // Single line nodes
-    @at-root .vj__view.vj--single-line {
-      white-space: nowrap;
-    }
-
     // Collapsable token
     @at-root .vj__window.vj--collapsable-brackets & .vj-text {
       // Brackets hover

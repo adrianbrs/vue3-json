@@ -57,6 +57,11 @@
       </div>
 
       <div class="input">
+        <input type="checkbox" v-model="options.singleLine" />
+        <span>Single Line</span>
+      </div>
+
+      <div class="input">
         <input type="checkbox" v-model="options.virtualList" />
         <span>Virtual List (Performance)</span>
       </div>
@@ -71,7 +76,7 @@
 
 <script lang="ts">
 import { defineComponent } from "vue";
-import example1 from "./examples/example1.json";
+import example from "./examples/example2.json";
 import { VJOptions } from "./types";
 
 export default defineComponent({
@@ -81,16 +86,17 @@ export default defineComponent({
       depth: 6,
       enableParser: true,
       options: {
-        tablines: false,
+        tablines: true,
         showLength: true,
         showQuotes: true,
         collapseButton: true,
         collapseBracket: true,
         lineNumbers: true,
-        virtualList: false,
+        virtualList: true,
+        singleLine: true,
       } as Partial<VJOptions>,
       debounce: null as number | null,
-      json: example1,
+      json: example,
     };
   },
   computed: {
@@ -159,6 +165,7 @@ body {
     flex-basis: 0;
     max-height: 100%;
     padding: 1em;
+    min-width: 30%;
 
     h4,
     h5 {

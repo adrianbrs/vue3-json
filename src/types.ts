@@ -6,6 +6,7 @@ export interface VJOptions {
   tablines: boolean;
   showQuotes: boolean;
   showLength: boolean;
+  singleLine: boolean;
   valueParser?: VJValueParser;
   collapseBracket?: boolean;
   collapseButton?: boolean;

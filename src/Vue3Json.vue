@@ -9,7 +9,7 @@
           :style="{
             ...viewContentStyle,
             width: `${lineNumWidth}px`,
-            flex: `0 0 ${heightList[line]}px`,
+            flex: `0 0 ${getElementHeight(line)}px`,
           }"
         >
           <pre>{{ line }}</pre>
@@ -31,6 +31,7 @@
             v-for="el in renderElements"
             :key="el.index"
             :token="el"
+            :style="nodeStyles"
             v-model:collapsed="el.collapsed"
             @update:collapsed="
               (collapsed) => updateCollapse(el.index, collapsed)
@@ -47,6 +48,7 @@
 import {
   computed,
   defineComponent,
+  nextTick,
   PropType,
   provide,
   reactive,
@@ -138,9 +140,10 @@ export default defineComponent({
         width: 0,
       },
       resizeObserver: null as ResizeObserver | null,
+      updatingView: false,
+      updatingTree: false,
       startEntry: 0,
       endEntry: 0,
-      updatingView: false,
       prerender: 1,
       heightList: [] as number[],
       lineNumWidth: 0,
@@ -173,6 +176,7 @@ export default defineComponent({
       collapseBracket: canBracketCollapse,
       collapseButton: propsRef.collapseButton,
       tabSpaces: propsRef.tabSpaces,
+      singleLine: propsRef.singleLine,
     } as ToRefs<VJOptions>);
 
     // Provide plugin props
@@ -187,12 +191,16 @@ export default defineComponent({
 
     // Watch model value
     watch(modelValue, (val) => {
-      elements.value = useParser(val, parserOptions.value);
+      nextTick(() => {
+        elements.value = useParser(val, parserOptions.value);
+      });
     });
 
     // Watch parser options change
     watch(parserOptions, (opts) => {
-      elements.value = useParser(modelValue.value, opts);
+      nextTick(() => {
+        elements.value = useParser(modelValue.value, opts);
+      });
     });
 
     // Content View
@@ -222,15 +230,8 @@ export default defineComponent({
     this.updateLineNumWidth();
 
     if (this.useVirtualList) {
-      this.updateEntries();
+      this.startVirtualList();
     }
-
-    // Listen to view scroll
-    this.viewContent.addEventListener("scroll", this.updateView);
-
-    // Create view resize observer
-    this.resizeObserver = new ResizeObserver(this.onViewResize);
-    this.resizeObserver.observe(this.viewContent);
   },
   computed: {
     visibleElements(): {
@@ -245,7 +246,8 @@ export default defineComponent({
           .filter((el: VJToken<VJTokenType>) => el.visible)
           .reduce(
             (arr, token, i) => {
-              const height = this.heightList[token.index] ?? this.lineHeight;
+              const height =
+                this.getElementHeight(token.index) ?? this.lineHeight;
               arr.push({
                 token,
                 index: i,
@@ -287,10 +289,15 @@ export default defineComponent({
         "vj--single-line": this.isSingleLine,
       };
     },
+    nodeStyles(): Record<string, string> {
+      return {
+        height: this.isSingleLine ? `${this.lineHeight}px` : "",
+      };
+    },
     viewContentStyle(): Record<string, string> {
       if (!this.useVirtualList) return {};
       const startIndex = this.startEntry ?? 0;
-      const top = this.visibleElements[startIndex].top ?? 0;
+      const top = this.visibleElements[startIndex]?.top ?? 0;
 
       return {
         transform: `translateY(${top}px)`,
@@ -312,26 +319,69 @@ export default defineComponent({
     },
     useVirtualList(use: boolean) {
       if (use) {
-        this.$nextTick(() => {
-          this.updateView();
-        });
+        this.startVirtualList();
+      } else {
+        this.stopVirtualList();
       }
+    },
+    isSingleLine() {
+      this.updateTree();
     },
   },
   methods: {
+    startVirtualList() {
+      if (!this.viewContent) return;
+
+      // Listen to view scroll
+      this.viewContent.addEventListener("scroll", this.updateView);
+
+      // Create view resize observer
+      if (!this.resizeObserver) {
+        this.resizeObserver = new ResizeObserver(this.onViewResize);
+      }
+      this.resizeObserver.observe(this.viewContent);
+
+      this.$nextTick(() => {
+        this.updateView();
+      });
+    },
+    stopVirtualList() {
+      if (!this.viewContent) return;
+
+      // Remove listener and observer
+      this.viewContent.removeEventListener("scroll", this.updateView);
+      this.resizeObserver?.unobserve(this.viewContent);
+    },
+    // Force tree nodes update
+    updateTree(resetLoaded = false) {
+      if (!this.updatingTree) {
+        this.updatingTree = true;
+
+        requestAnimationFrame(() => {
+          if (resetLoaded) {
+            this.loadedNodes.clear();
+          }
+          const elements = this.elements.slice();
+          this.elements = [];
+
+          this.$nextTick(() => {
+            this.updatingTree = false;
+
+            this.elements = elements;
+            this.updateView();
+          });
+        });
+      }
+    },
+    getElementHeight(index: number) {
+      return this.isSingleLine ? this.lineHeight : this.heightList[index];
+    },
     onViewResize(entries: ResizeObserverEntry[]) {
       if (!this.useVirtualList) return;
       const entry = entries[0];
 
       if (entry) {
-        this.$nextTick(() => {
-          this.updateView();
-
-          // Clear loaded nodes set
-          if (this.loadedNodes.size) {
-            this.loadedNodes.clear();
-          }
-        });
+        this.updateTree(true);
       }
     },
     updateLineNumWidth() {
@@ -339,6 +389,21 @@ export default defineComponent({
       if (this.lineNumWidthRef && this.lineNumWidthRef.offsetWidth) {
         const width = this.lineNumWidthRef.offsetWidth;
         this.lineNumWidth = width;
+      }
+    },
+    updateView() {
+      if (!this.useVirtualList) return;
+
+      // Update view only after each animation frame
+      if (!this.updatingView) {
+        this.updatingView = true;
+        requestAnimationFrame(() => {
+          this.updatingView = false;
+
+          // Update view size again to calculate scroll bottom
+          this.updateViewSize();
+          this.updateEntries();
+        });
       }
     },
     updateViewSize() {
@@ -359,25 +424,12 @@ export default defineComponent({
         width: clientWidth,
       };
     },
-    updateView() {
-      if (!this.useVirtualList) return;
-
-      // Update view only after each animation frame
-      if (!this.updatingView) {
-        this.updatingView = true;
-        requestAnimationFrame(() => {
-          this.updatingView = false;
-
-          // Update view size again to calculate scroll bottom
-          this.updateViewSize();
-          this.updateEntries();
-        });
-      }
-    },
     onElementReady(height: number, index: number) {
-      if (this.loadedNodes.has(index)) return;
+      if (this.isSingleLine || this.loadedNodes.has(index)) return;
       if (typeof height !== "undefined") {
-        this.heightList[index] = height;
+        if (height !== this.getElementHeight(index)) {
+          this.heightList[index] = height;
+        }
         this.loadedNodes.add(index);
       }
     },
@@ -397,12 +449,10 @@ export default defineComponent({
     },
     updateCollapse(index: number, collapsed: boolean): void {
       const el = this.elements[index] as VJToken<VJTreeTokenType>;
-      console.log(index, el.siblingIndex);
       if (!["array", "object"].includes(el.type)) return;
       if (el.role === "close") {
         return this.updateCollapse(el.siblingIndex, collapsed);
       }
-      const { depth } = el;
       const sibling = this.elements[
         el.siblingIndex
       ] as VJToken<VJTreeTokenType>;
@@ -415,27 +465,14 @@ export default defineComponent({
         sibling.visible = !collapsed;
       }
 
-      // Childrens
-      let i = index + 1;
-      let next = this.elements[i];
+      // Toggle children
+      for (let i = index + 1; i <= sibling.index; i++) {
+        const child = this.elements[i];
+        child.visible = !collapsed;
 
-      while (next && next.depth > depth) {
-        if (
-          collapsed ||
-          (next.parent && this.isCollapsed(next.parent)) ||
-          (next.collapsed && next.role === "close")
-        ) {
-          next.visible = false;
-        } else if (
-          next.depth === depth + 1 ||
-          !next.parent ||
-          !this.isCollapsed(next.parent)
-        ) {
-          next.visible = true;
+        if (child.collapsed && child.role === "open") {
+          i = child.siblingIndex as number;
         }
-
-        i++;
-        next = this.elements[i];
       }
     },
     updateEntries() {
@@ -444,8 +481,10 @@ export default defineComponent({
       // Find end entry
       const count = this.visibleElements.length;
 
+      let minPossibleEnd =
+        this.startEntry + ~~(this.view.height / this.lineHeight);
       let endIdx;
-      for (endIdx = this.startEntry; endIdx < count; endIdx++) {
+      for (endIdx = minPossibleEnd; endIdx < count; endIdx++) {
         const bottom = this.visibleElements[endIdx].bottom;
         if (bottom > this.scroll.end) {
           break;
@@ -484,8 +523,7 @@ export default defineComponent({
     },
   },
   beforeUnmount() {
-    this.viewContent?.removeEventListener("scroll", this.updateView);
-    this.resizeObserver?.unobserve(this.viewContent as HTMLElement);
+    this.stopVirtualList();
   },
 });
 </script>

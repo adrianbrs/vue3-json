@@ -74,7 +74,7 @@ export default defineComponent({
   },
   setup(props, context) {
     const propsRef = toRefs(props);
-    const tokenRef = propsRef.token.value;
+    const tokenRef = propsRef.token;
 
     const tokenList = inject(VJTokenListKey);
     const { showQuotes, showLength, collapseBracket, valueParser } = toRefs(
@@ -138,19 +138,6 @@ export default defineComponent({
         [`vj-${this.tokenRef.role}`]: !!this.tokenRef.role,
       };
     },
-    // hasNext(): boolean {
-    //   if (!this.tokenList) return true;
-    //   if (this.token.role === "open") {
-    //     if (this.isCollapsed && this.groupToken) {
-    //       return (
-    //         this.tokenList[this.groupToken.index + 1]?.role !== "close" ?? true
-    //       );
-    //     }
-    //     return false;
-    //   }
-    //   if (this.token.index >= this.tokenList.length - 1) return false;
-    //   return this.tokenList[this.token.index + 1]?.role !== "close" ?? true;
-    // },
     hasNext(): boolean {
       return this.tokenRef?.hasNext ?? true;
     },
@@ -176,11 +163,11 @@ export default defineComponent({
       return !!this.tokenRef?.hover || !!this.sibling?.hover;
     },
     closeToken(): string {
-      return this.tokenRef.value === "["
-        ? "]"
-        : this.tokenRef.value === "{"
-        ? "}"
-        : "";
+      if (!this.tokenList) return "";
+      return (
+        (this.tokenList[this.tokenRef.siblingIndex as number]
+          ?.value as string) ?? ""
+      );
     },
   },
 });

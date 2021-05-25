@@ -45,6 +45,7 @@ interface ParserIterationOptions {
   key: string | null;
   hasNext: boolean;
   index: number;
+  maxDepth: number;
 }
 
 export interface VJParserOptions {
@@ -55,36 +56,10 @@ export function useParser(
   val: VJJSONValue,
   options: VJParserOptions
 ): VJToken<VJTokenType>[] {
-  const elements = parseObject(val);
-  return reactive(
-    elements.map((el, i) => {
-      console.log(el.index, i);
-      // const maxDepth = options.maxDepth;
-
-      // if (maxDepth >= 0 && el.depth >= maxDepth) {
-      //   const hide = el.depth > maxDepth;
-      //   el.visible = !hide;
-      //   el.collapsed = true;
-
-      //   // if (el.type === "bracket") {
-      //   //   el.collapsed = true;
-
-      //   //   if (el.groupToken) {
-      //   //     el.groupToken.collapsed = true;
-      //   //   }
-
-      //   //   if (el.role === "close" && !hide) {
-      //   //     el.visible = false;
-      //   //   }
-      //   // }
-      // } else {
-      //   el.visible = true;
-      // }
-
-      el.visible = true;
-      return el;
-    })
-  );
+  const elements = parseObject(val, {
+    maxDepth: options.maxDepth,
+  });
+  return reactive(elements);
 }
 
 function getObjectType(obj: unknown) {
@@ -97,20 +72,26 @@ function isTypeValid(type: string) {
 
 function parseObject(
   obj: VJJSONValue,
-  options: ParserIterationOptions = {
-    depth: 0,
-    key: null,
-    parent: null,
-    hasNext: false,
-    index: 0,
-  }
+  itOptions?: Partial<ParserIterationOptions>
 ): VJToken<VJTokenType>[] {
   const valType = getObjectType(obj) as VJTokenType;
   if (!isTypeValid(valType)) {
     throwError("Invalid JSON data type: " + valType);
   }
+  const options: ParserIterationOptions = Object.assign(
+    {
+      depth: 0,
+      key: null,
+      parent: null,
+      hasNext: false,
+      index: 0,
+      maxDepth: -1,
+    },
+    itOptions
+  );
 
-  const { depth, hasNext, key, parent, index } = options;
+  const { depth, maxDepth, hasNext, key, parent, index } = options;
+  const hasMaxDepth = maxDepth >= 0;
 
   if (!["object", "array"].includes(valType)) {
     return [
@@ -123,6 +104,7 @@ function parseObject(
         hasNext,
         index,
         hover: false,
+        visible: !hasMaxDepth || depth <= maxDepth,
       } as VJToken<VJValueTokenType>,
     ];
   } else {
@@ -130,7 +112,22 @@ function parseObject(
     const entries: Array<unknown> = !isArray
       ? Object.entries(obj as unknown[])
       : (obj as Array<unknown>);
-    const nextIndex = index + 1;
+
+    const open = {
+      type: valType,
+      value: isArray ? "[" : "{",
+      role: "open",
+      parent,
+      key,
+      depth,
+      index,
+      hasNext,
+      hover: false,
+      siblingIndex: -1,
+      childCount: entries.length,
+      visible: !hasMaxDepth || depth <= maxDepth,
+      collapsed: hasMaxDepth && depth >= maxDepth,
+    } as VJToken<VJTreeTokenType>;
 
     let children;
     if (isArray) {
@@ -145,6 +142,7 @@ function parseObject(
                 hasNext: idx !== entries.length - 1,
                 parent: open,
                 index: lastIndex + 1,
+                maxDepth,
               } as any
             )
           );
@@ -167,6 +165,7 @@ function parseObject(
                 key: key as string,
                 parent: open,
                 index: lastIndex + 1,
+                maxDepth,
               })
             );
             return arr;
@@ -176,8 +175,8 @@ function parseObject(
         .flat();
     }
 
-    console.log(index, children);
-    const lastIndex = children[children.length - 1].index;
+    const lastIndex =
+      children[children.length - 1]?.index ?? index + children.length;
 
     const close = {
       type: valType,
@@ -188,22 +187,13 @@ function parseObject(
       hasNext,
       index: lastIndex + 1,
       siblingIndex: index,
-      childCount: children.length,
+      childCount: entries.length,
+      visible: !hasMaxDepth || depth < maxDepth,
+      collapsed: open.collapsed,
     } as VJToken<VJTreeTokenType>;
 
-    const open = {
-      type: valType,
-      value: isArray ? "[" : "{",
-      role: "open",
-      parent,
-      key,
-      depth,
-      index,
-      hasNext,
-      hover: false,
-      siblingIndex: close.index,
-      childCount: children.length,
-    } as VJToken<VJTreeTokenType>;
+    // Sets open token siblingIndex
+    open.siblingIndex = close.index;
 
     return [open, ...children, close];
   }
