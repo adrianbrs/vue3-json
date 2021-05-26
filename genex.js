@@ -64,4 +64,5 @@ if (fs.existsSync(output)) {
   );
 } else {
   saveExample();
+  process.exit();
 }

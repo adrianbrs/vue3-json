@@ -47,8 +47,9 @@ import vjNodeVue from "@/components/vj-node.vue";
 import { useParser } from "@/composables/useParser";
 import { useVirtualList } from "@/composables/useVirtualList";
 import { VJVirtualListNode } from "./types/virtualList";
-import { findTokenIndex, getTokenWidth } from "./lib/utils";
+import { findTokenIndex, isGroupType } from "./lib/utils";
 
+// Limited to +/- 124k nodes
 export default defineComponent({
   name: "vue-json",
   props: {
@@ -103,7 +104,7 @@ export default defineComponent({
     },
     preRender: {
       type: Number,
-      default: () => 3,
+      default: () => 1,
     },
   },
   components: {
@@ -326,7 +327,7 @@ export default defineComponent({
     },
     isCollapsed(el: VJToken<VJTokenType> | null): boolean {
       if (!el) return false;
-      if (!["array", "object"].includes(el.type)) {
+      if (!isGroupType(el.type)) {
         return this.isCollapsed(el.parent);
       }
       const tree = el as VJToken<VJTreeTokenType>;
@@ -340,7 +341,7 @@ export default defineComponent({
     },
     updateCollapse(index: number, collapsed: boolean): void {
       const el = this.elements[index] as VJToken<VJTreeTokenType>;
-      if (!["array", "object"].includes(el.type)) return;
+      if (!isGroupType(el.type)) return;
       if (el.role === "close") {
         return this.updateCollapse(el.siblingIndex, collapsed);
       }
