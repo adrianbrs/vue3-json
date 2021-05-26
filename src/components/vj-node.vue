@@ -52,10 +52,11 @@
 <script lang="ts">
 import { defineComponent, inject, PropType, toRefs } from "vue";
 import { useCollapsable } from "@/composables/useCollapsable";
-import { VJToken, VJTokenType, VJTreeTokenType } from "@/composables/useParser";
-import vjTabVue from "./vj-tab.vue";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
-import { VJOptions, VJValueParser } from "@/types";
+import { VJOptions, VJValueParser } from "@/types/vue3json";
+import { VJToken, VJTokenType, VJTreeTokenType } from "@/types";
+import vjTabVue from "./vj-tab.vue";
+import { isGroupType } from "@/lib/utils";
 
 export default defineComponent({
   name: "vj-bracket",
@@ -148,7 +149,7 @@ export default defineComponent({
       ] as VJToken<VJTreeTokenType>;
     },
     isTree(): boolean {
-      return ["object", "array"].includes(this.tokenRef.type);
+      return isGroupType(this.tokenRef.type);
     },
     isString(): boolean {
       return this.tokenRef.type === "string";

@@ -1,5 +1,6 @@
 import { App } from "@vue/runtime-core";
 import Vue3Json from "./Vue3Json.vue";
+export * from "@/types/vue3json";
 
 export default {
   ...Vue3Json,

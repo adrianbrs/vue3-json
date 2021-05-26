@@ -44,10 +44,10 @@
 </template>
 
 <script lang="ts">
-import { VJToken, VJTokenType } from "@/composables/useParser";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
-import { VJOptions } from "@/types";
+import { VJOptions } from "@/types/vue3json";
 import { defineComponent, inject, PropType, toRefs } from "vue";
+import { VJToken, VJTokenType } from "@/types";
 
 export default defineComponent({
   name: "vj-tab",

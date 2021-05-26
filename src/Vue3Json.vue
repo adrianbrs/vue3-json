@@ -1,44 +1,28 @@
 <template>
-  <div class="vj-app">
+  <div style="position: absolute; left: 100%; bottom: 1em"></div>
+
+  <div class="vj-app" v-bind="$attrs">
     <div ref="viewContent" :class="windowClasses">
-      <div class="vj-content__line-numbers" v-if="false">
-        <span
-          class="vj-el__line-number"
-          v-for="line in lineNumberElements"
-          :key="line"
-          :style="{
-            ...viewContentStyle,
-            width: `${lineNumWidth}px`,
-            flex: `0 0 ${getElementHeight(line)}px`,
-          }"
-        >
-          <pre>{{ line }}</pre>
-        </span>
-
-        <!-- Helper element to get max line number width -->
-        <span class="vj-helper">
-          <span class="vj-helper__el">
-            <pre ref="lineNumWidthRef" class="vj-el__line-number">{{
-              elements[elements.length - 1].index
-            }}</pre>
-          </span>
-        </span>
-      </div>
-
       <div class="vj__view" :style="viewStyle">
-        <div class="vj__view-content" :style="viewContentStyle">
-          <vj-node
-            v-for="el in renderElements"
-            :key="el.index"
-            :token="el"
-            :style="nodeStyles"
-            v-model:collapsed="el.collapsed"
-            @update:collapsed="
-              (collapsed) => updateCollapse(el.index, collapsed)
-            "
-            @ready="onElementReady"
-          ></vj-node>
-        </div>
+        <!-- <vj-node
+          v-if="updatingViewWidth"
+          class="vj--hidden"
+          :token="nodeLongestLine"
+          :ref="setViewWidth"
+        ></vj-node> -->
+
+        <vj-node
+          v-for="node in nodesToRender"
+          :key="node.token.index"
+          :token="node.token"
+          :style="{
+            top: useVirtualList ? `${node.top}px` : '',
+          }"
+          v-model:collapsed="node.token.collapsed"
+          @update:collapsed="
+            (collapsed) => updateCollapse(node.token.index, collapsed)
+          "
+        ></vj-node>
       </div>
     </div>
   </div>
@@ -46,27 +30,24 @@
 
 <script lang="ts">
 import {
+  ComponentPublicInstance,
   computed,
   defineComponent,
-  nextTick,
   PropType,
   provide,
   reactive,
   ref,
   ToRefs,
   toRefs,
-  watch,
 } from "vue";
-import {
-  VJToken,
-  useParser,
-  VJTokenType,
-  VJTreeTokenType,
-} from "@/composables/useParser";
+import { VJToken, VJTokenType, VJTreeTokenType } from "@/types";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
-import { VJOptions, VJValueParser } from "@/types";
-import ResizeObserver from "resize-observer-polyfill";
+import { VJOptions, VJValueParser } from "@/types/vue3json";
 import vjNodeVue from "@/components/vj-node.vue";
+import { useParser } from "@/composables/useParser";
+import { useVirtualList } from "@/composables/useVirtualList";
+import { VJVirtualListNode } from "./types/virtualList";
+import { findTokenIndex, getTokenWidth } from "./lib/utils";
 
 export default defineComponent({
   name: "vue-json",
@@ -89,7 +70,7 @@ export default defineComponent({
     },
     lineHeight: {
       type: Number,
-      default: () => 17,
+      default: () => 18,
     },
     showLength: {
       type: Boolean,
@@ -120,9 +101,9 @@ export default defineComponent({
       type: Number,
       default: () => 2,
     },
-    singleLine: {
-      type: Boolean,
-      default: () => true,
+    preRender: {
+      type: Number,
+      default: () => 3,
     },
   },
   components: {
@@ -130,28 +111,15 @@ export default defineComponent({
   },
   data() {
     return {
-      scroll: {
-        top: 0,
-        height: 0,
-        end: 0,
-      },
-      view: {
-        height: 0,
-        width: 0,
-      },
-      resizeObserver: null as ResizeObserver | null,
-      updatingView: false,
-      updatingTree: false,
-      startEntry: 0,
-      endEntry: 0,
-      prerender: 1,
-      heightList: [] as number[],
       lineNumWidth: 0,
-      loadedNodes: new Set() as Set<number>,
+      viewWidth: 0,
+      updatingViewWidth: true,
     };
   },
   setup(props) {
     const propsRef = toRefs(props);
+
+    const viewContent = ref(null as HTMLElement | null);
     const {
       modelValue,
       depth,
@@ -160,7 +128,6 @@ export default defineComponent({
       virtualList,
       collapseBracket: canBracketCollapse,
       tablines: hasTablines,
-      singleLine: isSingleLine,
     } = propsRef;
 
     // Line number max width ref
@@ -176,35 +143,79 @@ export default defineComponent({
       collapseBracket: canBracketCollapse,
       collapseButton: propsRef.collapseButton,
       tabSpaces: propsRef.tabSpaces,
-      singleLine: propsRef.singleLine,
     } as ToRefs<VJOptions>);
 
     // Provide plugin props
     provide(VJOptionsKey, options);
 
+    /*******************************************
+     *                 PARSER                  *
+     *******************************************/
     const parserOptions = computed(() => ({
       maxDepth: depth.value,
     }));
-
-    const elements = ref(useParser(modelValue.value, parserOptions.value));
+    const elements = computed(() =>
+      useParser(modelValue.value, parserOptions.value)
+    );
     provide(VJTokenListKey, elements as unknown as VJToken<VJTokenType>[]);
+    /*******************************************/
 
-    // Watch model value
-    watch(modelValue, (val) => {
-      nextTick(() => {
-        elements.value = useParser(val, parserOptions.value);
+    /*******************************************
+     *               VIEW WIDTH                *
+     *******************************************/
+    // const tokenGroupsByWidth = computed(() => {
+    //   const tokensByWidth = elements.value.slice().sort((tk1, tk2) => getTokenWidth(tk2) - getTokenWidth(tk1));
+    //   const groups = ref([] as VJToken<VJTokenType>[]);
+    //   console.log("tokenByWidth:", tokensByWidth);
+
+    //   tokensByWidth.forEach((token) => {
+    //     if (isGroupType(token.type)) return;
+    //     if (!token.parent) return;
+
+    //   });
+
+    //   return groups;
+    // });
+    /*******************************************/
+
+    // Non collapsed nodes
+    const visibleNodes = computed(() => {
+      let visibleList = elements.value.slice();
+
+      // Remove collapsed nodes
+      visibleList.forEach((node) => {
+        if (
+          node.collapsed &&
+          node.role === "open" &&
+          typeof node.siblingIndex !== "undefined"
+        ) {
+          // Remove collapsed peace
+          const startIdx = findTokenIndex(visibleList, node);
+          const endIdx = findTokenIndex(
+            visibleList,
+            elements.value[node.siblingIndex]
+          );
+
+          const firstPiece = visibleList.slice(0, startIdx + 1);
+          const lastPiece = visibleList.slice(endIdx + 1);
+
+          // Change visible list
+          visibleList = firstPiece.concat(lastPiece);
+        }
       });
+
+      return visibleList;
     });
 
-    // Watch parser options change
-    watch(parserOptions, (opts) => {
-      nextTick(() => {
-        elements.value = useParser(modelValue.value, opts);
-      });
+    /*******************************************
+     *              VIRTUAL LIST               *
+     *******************************************/
+    const virtualListAttrs = useVirtualList(elements, visibleNodes, {
+      lineHeight: propsRef.lineHeight,
+      preRender: propsRef.preRender,
+      viewRef: viewContent,
     });
-
-    // Content View
-    const viewContent = ref<HTMLDivElement | null>(null);
+    /******************************************/
 
     return {
       viewContent,
@@ -216,107 +227,20 @@ export default defineComponent({
       useVirtualList: virtualList,
       canBracketCollapse,
       hasTablines,
-      isSingleLine,
+      visibleNodes,
+      // tokensByWidth,
+      ...virtualListAttrs,
     };
-  },
-  created() {
-    this.elements.forEach(() => {
-      this.heightList.push(this.lineHeight);
-    });
   },
   mounted() {
     if (!this.viewContent) return;
-    this.updateViewSize();
     this.updateLineNumWidth();
 
     if (this.useVirtualList) {
       this.startVirtualList();
     }
   },
-  computed: {
-    visibleElements(): {
-      token: VJToken<VJTokenType>;
-      index: number;
-      height: number;
-      bottom: number;
-      top: number;
-    }[] {
-      const els =
-        this.elements
-          .filter((el: VJToken<VJTokenType>) => el.visible)
-          .reduce(
-            (arr, token, i) => {
-              const height =
-                this.getElementHeight(token.index) ?? this.lineHeight;
-              arr.push({
-                token,
-                index: i,
-                height,
-                bottom: height + (arr[i - 1] ? arr[i - 1].bottom : 0),
-                top: arr[i - 1] ? arr[i - 1].bottom : 0,
-              });
-
-              return arr;
-            },
-            [] as {
-              token: VJToken<VJTokenType>;
-              index: number;
-              height: number;
-              bottom: number;
-              top: number;
-            }[]
-          ) ?? [];
-
-      return els;
-    },
-    renderElements(): VJToken<VJTokenType>[] {
-      let elements = this.visibleElements;
-
-      // Splice for virtual list
-      if (this.useVirtualList) {
-        elements = elements.slice(this.startEntry, this.endEntry);
-      }
-      return elements.map((v) => v.token);
-    },
-    lineNumberElements(): number[] {
-      return this.renderElements.map((el) => el.index);
-    },
-    windowClasses(): Record<string, boolean | unknown> {
-      return {
-        vj__window: true,
-        "vj--collapsable-brackets": this.canBracketCollapse,
-        "vj--tablines": this.hasTablines,
-        "vj--single-line": this.isSingleLine,
-      };
-    },
-    nodeStyles(): Record<string, string> {
-      return {
-        height: this.isSingleLine ? `${this.lineHeight}px` : "",
-      };
-    },
-    viewContentStyle(): Record<string, string> {
-      if (!this.useVirtualList) return {};
-      const startIndex = this.startEntry ?? 0;
-      const top = this.visibleElements[startIndex]?.top ?? 0;
-
-      return {
-        transform: `translateY(${top}px)`,
-      };
-    },
-    viewStyle(): Record<string, string> {
-      if (!this.useVirtualList) return {};
-
-      return {
-        height: `${this.scroll.height}px`,
-      };
-    },
-  },
   watch: {
-    visibleElements() {
-      this.$nextTick(() => {
-        this.updateView();
-      });
-    },
     useVirtualList(use: boolean) {
       if (use) {
         this.startVirtualList();
@@ -324,113 +248,80 @@ export default defineComponent({
         this.stopVirtualList();
       }
     },
-    isSingleLine() {
-      this.updateTree();
+    visibleNodes() {
+      // this.updateViewWidth();
+    },
+  },
+  computed: {
+    // nodeLongestLine(): VJToken<VJTokenType> {
+    //   const res = this.visibleNodes.reduce((longest, node) => {
+    //     if (getTokenWidth(node) > getTokenWidth(longest)) {
+    //       return node;
+    //     }
+    //     return longest;
+    //   }, this.visibleNodes[0]);
+
+    //   console.log("nodeLongestLine:", this.visibleNodes.length);
+
+    //   return res;
+    // },
+    nodesToRender(): VJVirtualListNode[] {
+      if (this.useVirtualList) return this.vlViewableNodes;
+      return this.visibleNodes.map((el) => ({
+        token: el,
+        index: el.index,
+        height: 0,
+        bottom: 0,
+        top: 0,
+      }));
+    },
+    lineNumberElements(): number[] {
+      return [];
+      // return this.vlNodeList.map((el) => el.index);
+    },
+    windowClasses(): Record<string, boolean | unknown> {
+      return {
+        vj__window: true,
+        "vj--collapsable-brackets": this.canBracketCollapse,
+        "vj--tablines": this.hasTablines,
+        "vj--virtual-list": this.useVirtualList,
+      };
+    },
+    nodeStyles(): Record<string, string> {
+      return {
+        height: `${this.lineHeight}px`,
+      };
+    },
+    viewStyle(): Record<string, string> {
+      if (!this.useVirtualList) return {};
+
+      return {
+        height: `${this.vlScroll.height}px`,
+        minWidth: `${this.viewWidth}px`,
+        lineHeight: `${this.lineHeight}px`,
+      };
     },
   },
   methods: {
-    startVirtualList() {
-      if (!this.viewContent) return;
-
-      // Listen to view scroll
-      this.viewContent.addEventListener("scroll", this.updateView);
-
-      // Create view resize observer
-      if (!this.resizeObserver) {
-        this.resizeObserver = new ResizeObserver(this.onViewResize);
+    updateViewWidth() {
+      this.updatingViewWidth = true;
+    },
+    setViewWidth(node: ComponentPublicInstance) {
+      if (node && node.$el) {
+        const $el = node.$el as HTMLElement;
+        if ($el.clientWidth) this.viewWidth = $el.clientWidth;
       }
-      this.resizeObserver.observe(this.viewContent);
 
+      // Remove node on next tick
       this.$nextTick(() => {
-        this.updateView();
+        this.updatingViewWidth = false;
       });
-    },
-    stopVirtualList() {
-      if (!this.viewContent) return;
-
-      // Remove listener and observer
-      this.viewContent.removeEventListener("scroll", this.updateView);
-      this.resizeObserver?.unobserve(this.viewContent);
-    },
-    // Force tree nodes update
-    updateTree(resetLoaded = false) {
-      if (!this.updatingTree) {
-        this.updatingTree = true;
-
-        requestAnimationFrame(() => {
-          if (resetLoaded) {
-            this.loadedNodes.clear();
-          }
-          const elements = this.elements.slice();
-          this.elements = [];
-
-          this.$nextTick(() => {
-            this.updatingTree = false;
-
-            this.elements = elements;
-            this.updateView();
-          });
-        });
-      }
-    },
-    getElementHeight(index: number) {
-      return this.isSingleLine ? this.lineHeight : this.heightList[index];
-    },
-    onViewResize(entries: ResizeObserverEntry[]) {
-      if (!this.useVirtualList) return;
-      const entry = entries[0];
-
-      if (entry) {
-        this.updateTree(true);
-      }
     },
     updateLineNumWidth() {
       // Get max line number width
       if (this.lineNumWidthRef && this.lineNumWidthRef.offsetWidth) {
         const width = this.lineNumWidthRef.offsetWidth;
         this.lineNumWidth = width;
-      }
-    },
-    updateView() {
-      if (!this.useVirtualList) return;
-
-      // Update view only after each animation frame
-      if (!this.updatingView) {
-        this.updatingView = true;
-        requestAnimationFrame(() => {
-          this.updatingView = false;
-
-          // Update view size again to calculate scroll bottom
-          this.updateViewSize();
-          this.updateEntries();
-        });
-      }
-    },
-    updateViewSize() {
-      if (!this.viewContent) return;
-      const { clientHeight, clientWidth, scrollTop, scrollHeight } =
-        this.viewContent;
-
-      this.scroll = {
-        top: scrollTop,
-        height: this.visibleElements
-          ? this.visibleElements[this.visibleElements.length - 1]?.bottom
-          : scrollHeight,
-        end: scrollTop + clientHeight,
-      };
-
-      this.view = {
-        height: clientHeight,
-        width: clientWidth,
-      };
-    },
-    onElementReady(height: number, index: number) {
-      if (this.isSingleLine || this.loadedNodes.has(index)) return;
-      if (typeof height !== "undefined") {
-        if (height !== this.getElementHeight(index)) {
-          this.heightList[index] = height;
-        }
-        this.loadedNodes.add(index);
       }
     },
     isCollapsed(el: VJToken<VJTokenType> | null): boolean {
@@ -460,70 +351,7 @@ export default defineComponent({
       // Collapse tokens
       el.collapsed = collapsed;
       sibling.collapsed = collapsed;
-
-      if (sibling.role === "close") {
-        sibling.visible = !collapsed;
-      }
-
-      // Toggle children
-      for (let i = index + 1; i <= sibling.index; i++) {
-        const child = this.elements[i];
-        child.visible = !collapsed;
-
-        if (child.collapsed && child.role === "open") {
-          i = child.siblingIndex as number;
-        }
-      }
     },
-    updateEntries() {
-      this.startEntry = this.binEntrySearch();
-
-      // Find end entry
-      const count = this.visibleElements.length;
-
-      let minPossibleEnd =
-        this.startEntry + ~~(this.view.height / this.lineHeight);
-      let endIdx;
-      for (endIdx = minPossibleEnd; endIdx < count; endIdx++) {
-        const bottom = this.visibleElements[endIdx].bottom;
-        if (bottom > this.scroll.end) {
-          break;
-        }
-      }
-
-      endIdx = Math.min(endIdx + 1, count);
-      this.endEntry = Math.max(endIdx, 1);
-    },
-    binEntrySearch() {
-      const count = this.visibleElements.length;
-
-      let start = 0;
-      let end = count;
-      let i = ~~(count / 2);
-      let oldI, el;
-
-      do {
-        oldI = i;
-        el = this.visibleElements[i];
-
-        if (el.bottom < this.scroll.top) {
-          start = i;
-        } else if (el.top >= this.scroll.top) {
-          end = i;
-        }
-
-        i = ~~((start + end) / 2);
-      } while (i !== oldI && start !== end);
-
-      // Normalize index
-      if (i < 0) i = 0;
-      if (i > count - 1) i = count - 1;
-
-      return i;
-    },
-  },
-  beforeUnmount() {
-    this.stopVirtualList();
   },
 });
 </script>

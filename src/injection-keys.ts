@@ -1,6 +1,5 @@
-import { InjectionKey, Ref } from "@vue/runtime-core";
-import { VJToken, VJTokenType } from "./composables/useParser";
-import { VJOptions } from "./types";
+import { InjectionKey } from "@vue/runtime-core";
+import { VJOptions, VJToken, VJTokenType } from "@/types";
 
 export const VJTokenListKey: InjectionKey<VJToken<VJTokenType>[]> =
   Symbol("VueJson_TokenList");

@@ -3,10 +3,20 @@
   &__node {
     display: flex;
     position: relative;
+    min-width: 100%;
+    white-space: nowrap;
 
-    // Single line nodes
-    @at-root .vj__window.vj--single-line & {
-      white-space: nowrap;
+    // Hidden node
+    &.vj--hidden {
+      position: absolute;
+      z-index: -99;
+      visibility: hidden;
+      opacity: 0;
+    }
+
+    // Virtual list
+    @at-root .vj__window.vj--virtual-list & {
+      position: absolute !important;
     }
 
     // Node hover
@@ -15,8 +25,11 @@
       @at-root .vj__window.vj--collapsable-brackets & {
         // Bracket color
         .vj__value {
-          .vj-text {
-            color: $primary;
+          &.vj-object,
+          &.vj-array {
+            .vj-text {
+              color: $primary;
+            }
           }
         }
       }
@@ -56,10 +69,14 @@
   // Node value
   &__value {
     // Collapsable token
-    @at-root .vj__window.vj--collapsable-brackets & .vj-text {
-      // Brackets hover
-      &:hover {
-        color: $primary;
+    @at-root .vj__window.vj--collapsable-brackets & {
+      &.vj-object,
+      &.vj-array {
+        .vj-text:hover {
+          &:hover {
+            color: $primary;
+          }
+        }
       }
     }
   }

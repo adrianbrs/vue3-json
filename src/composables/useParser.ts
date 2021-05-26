@@ -1,43 +1,14 @@
-import { throwError } from "@/lib/utils";
 import { reactive } from "@vue/reactivity";
-
-const validTokenTypes = [
-  "array",
-  "object",
-  "string",
-  "number",
-  "boolean",
-  "null",
-] as const;
-
-export type VJTokenType = typeof validTokenTypes[number];
-export type VJValueTokenType = Exclude<VJTokenType, "array" | "object">;
-export type VJTreeTokenType = "array" | "object";
-
-export type VJJSONValue =
-  | string
-  | number
-  | boolean
-  | { [key: string]: VJJSONValue }
-  | VJJSONValue[]
-  | null;
-export type VJJSONLiteral = string | number | boolean | null;
-
-export interface VJToken<T extends VJTokenType> {
-  type: T;
-  key?: string;
-  value: VJJSONLiteral;
-  depth: number;
-  parent: VJToken<VJTokenType> | null;
-  collapsed?: boolean;
-  visible: boolean;
-  index: number;
-  hover: boolean;
-  hasNext: boolean;
-  role: T extends VJTreeTokenType ? "open" | "close" : undefined;
-  siblingIndex: T extends VJTreeTokenType ? number : undefined;
-  childCount: T extends VJTreeTokenType ? number : undefined;
-}
+import { isGroupType, throwError } from "@/lib/utils";
+import {
+  VJJSONValue,
+  VJParserOptions,
+  VJToken,
+  VJTokenType,
+  VJTreeTokenType,
+  VJValueTokenType,
+  VJ_VALID_TOKEN_TYPES,
+} from "@/types";
 
 interface ParserIterationOptions {
   depth: number;
@@ -48,18 +19,12 @@ interface ParserIterationOptions {
   maxDepth: number;
 }
 
-export interface VJParserOptions {
-  maxDepth: number;
-}
-
-export function useParser(
-  val: VJJSONValue,
-  options: VJParserOptions
-): VJToken<VJTokenType>[] {
-  const elements = parseObject(val, {
-    maxDepth: options.maxDepth,
-  });
-  return reactive(elements);
+export function useParser(val: VJJSONValue, options: VJParserOptions) {
+  return reactive(
+    parseObject(val, {
+      maxDepth: options.maxDepth,
+    })
+  );
 }
 
 function getObjectType(obj: unknown) {
@@ -67,7 +32,7 @@ function getObjectType(obj: unknown) {
 }
 
 function isTypeValid(type: string) {
-  return validTokenTypes.includes(type as VJTokenType);
+  return VJ_VALID_TOKEN_TYPES.includes(type as VJTokenType);
 }
 
 function parseObject(
@@ -93,7 +58,7 @@ function parseObject(
   const { depth, maxDepth, hasNext, key, parent, index } = options;
   const hasMaxDepth = maxDepth >= 0;
 
-  if (!["object", "array"].includes(valType)) {
+  if (!isGroupType(valType)) {
     return [
       {
         type: valType,
@@ -104,7 +69,7 @@ function parseObject(
         hasNext,
         index,
         hover: false,
-        visible: !hasMaxDepth || depth <= maxDepth,
+        // visible: !hasMaxDepth || depth <= maxDepth,
       } as VJToken<VJValueTokenType>,
     ];
   } else {
@@ -125,7 +90,7 @@ function parseObject(
       hover: false,
       siblingIndex: -1,
       childCount: entries.length,
-      visible: !hasMaxDepth || depth <= maxDepth,
+      // visible: !hasMaxDepth || depth <= maxDepth,
       collapsed: hasMaxDepth && depth >= maxDepth,
     } as VJToken<VJTreeTokenType>;
 
@@ -188,7 +153,7 @@ function parseObject(
       index: lastIndex + 1,
       siblingIndex: index,
       childCount: entries.length,
-      visible: !hasMaxDepth || depth < maxDepth,
+      // visible: !hasMaxDepth || depth < maxDepth,
       collapsed: open.collapsed,
     } as VJToken<VJTreeTokenType>;
 

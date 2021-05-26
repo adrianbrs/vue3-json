@@ -4,9 +4,9 @@ $theme-dark: (
   sel-highlight: #bcbcbc,
   tab-border-color: #ddd,
   comment-color: #aaa,
-  string-color: #090,
-  string-quote-color: #008000,
-  number-color: #00e,
+  string-color: #008000,
+  number-color: #0000cd,
+  boolean-color: #8b008b,
 );
 
 // Colors
@@ -22,13 +22,13 @@ $string-color: map-get(
   $map: $theme-dark,
   $key: "string-color",
 );
-$string-quote-color: map-get(
-  $map: $theme-dark,
-  $key: "string-quote-color",
-);
 $number-color: map-get(
   $map: $theme-dark,
   $key: "number-color",
+);
+$boolean-color: map-get(
+  $map: $theme-dark,
+  $key: "boolean-color",
 );
 $code-selection-dark: #bcbcbc;
 
