@@ -42,11 +42,11 @@ export default defineComponent({
     },
     collapsed: {
       type: Boolean,
-      default: () => false,
+      default: false,
     },
     selected: {
       type: Boolean,
-      default: () => false,
+      default: false,
     },
   },
   emits: ["click", "update:collapsed"],
