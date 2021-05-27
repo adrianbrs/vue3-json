@@ -19,7 +19,8 @@
     </div>
 
     <vue-json
-      v-model="json"
+      v-model="selection"
+      :json="json"
       :depth="depthNumber"
       :value-parser="enableParser ? valueParser : null"
       v-bind="options"
@@ -71,13 +72,34 @@
       </div>
 
       <div class="input">
-        <input type="checkbox" v-model="options.virtualList" />
+        <input type="checkbox" v-model="options.virtual" />
         <span>Virtual List (Performance)</span>
       </div>
 
       <div class="input">
         <input type="checkbox" v-model="enableParser" />
         <span>Custom Parser</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.selectable" />
+        <span>Selectable</span>
+      </div>
+
+      <div class="input">
+        <input type="checkbox" v-model="options.multiple" />
+        <span>Multiple Selection</span>
+      </div>
+
+      <div>
+        <pre>{{ selection }}</pre>
+
+        <button @click="selection = []">Clear Selection</button>
+
+        <div class="flex">
+          <input type="text" v-model="path" placeholder="Path" />
+          <button @click="selectPath">Select</button>
+        </div>
       </div>
     </div>
   </div>
@@ -93,6 +115,8 @@ export default defineComponent({
     return {
       depth: 6,
       enableParser: true,
+      selection: [] as string[],
+      path: "",
       options: {
         tablines: true,
         showLength: true,
@@ -100,8 +124,10 @@ export default defineComponent({
         collapseButton: true,
         collapseBracket: true,
         lineNumbers: true,
-        virtualList: true,
+        virtual: true,
         tabSpaces: 2,
+        selectable: true,
+        multiple: false,
       } as Partial<VJOptions>,
       debounce: null as number | null,
       example: {
@@ -154,6 +180,10 @@ export default defineComponent({
     },
   },
   methods: {
+    selectPath() {
+      this.selection.push(this.path);
+      this.path = "";
+    },
     valueParser(val: string | number) {
       if (typeof val !== "string") return val;
 
@@ -192,6 +222,10 @@ body {
   height: 100%;
   justify-content: stretch;
   align-items: center;
+
+  .flex {
+    display: flex;
+  }
 
   .section {
     display: block;

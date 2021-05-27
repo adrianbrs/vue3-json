@@ -18,12 +18,14 @@ interface ParserIterationOptions {
   hasNext: boolean;
   index: number;
   maxDepth: number;
+  path: string;
 }
 
 export function useParser(val: VJJSONValue, options: VJParserOptions) {
   return reactive(
     parseObject(val, {
       maxDepth: options.maxDepth,
+      path: options.path,
     })
   );
 }
@@ -51,6 +53,7 @@ function createToken<T extends VJTokenType>(
       hover: false,
       childCount: -1,
       role: null,
+      path: "",
       siblingIndex: -1,
       collapsed: false,
     } as unknown as VJToken<T>,
@@ -74,11 +77,12 @@ function parseObject(
       hasNext: false,
       index: 0,
       maxDepth: -1,
+      path: "",
     },
     itOptions
   );
 
-  const { depth, maxDepth, hasNext, key, parent, index } = options;
+  const { depth, maxDepth, hasNext, key, parent, index, path } = options;
   const hasMaxDepth = maxDepth >= 0;
 
   if (!isGroupType(valType)) {
@@ -91,6 +95,7 @@ function parseObject(
         parent,
         hasNext,
         index,
+        path,
       }),
     ];
   } else {
@@ -110,6 +115,7 @@ function parseObject(
       hasNext,
       childCount: entries.length,
       collapsed: hasMaxDepth && depth >= maxDepth,
+      path,
     });
 
     let children;
@@ -125,6 +131,7 @@ function parseObject(
               parent: open,
               index: lastIndex + 1,
               maxDepth,
+              path: `${path}[${idx}]`,
             })
           );
           return arr;
@@ -142,6 +149,7 @@ function parseObject(
               parent: open,
               index: lastIndex + 1,
               maxDepth,
+              path: `${path}.${key}`,
             })
           );
           return arr;
@@ -164,6 +172,7 @@ function parseObject(
       siblingIndex: index,
       childCount: entries.length,
       collapsed: open.collapsed,
+      path,
     });
 
     // Sets open token siblingIndex

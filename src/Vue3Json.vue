@@ -1,5 +1,5 @@
 <template>
-  <div style="position: absolute; left: 100%; bottom: 1em"></div>
+  <div style="position: absolute; right: 10%; bottom: 2em"></div>
 
   <div class="vj-app" v-bind="$attrs">
     <div ref="viewContent" :class="windowClasses">
@@ -15,6 +15,7 @@
           v-for="node in nodesToRender"
           :key="node.token.index"
           :token="node.token"
+          :selected="this.selection.has(node.token.path)"
           :style="{
             top: useVirtualList ? `${node.top}px` : '',
           }"
@@ -22,6 +23,7 @@
           @update:collapsed="
             (collapsed) => updateCollapse(node.token.index, collapsed)
           "
+          @click="onNodeClick"
         ></vj-node>
       </div>
     </div>
@@ -40,71 +42,95 @@ import {
   ToRefs,
   toRefs,
 } from "vue";
-import { VJToken, VJTokenType, VJTreeTokenType } from "@/types";
+import {
+  VJParserOptions,
+  VJToken,
+  VJTokenType,
+  VJTreeTokenType,
+} from "@/types";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
 import { VJOptions, VJValueParser } from "@/types/vue3json";
 import vjNodeVue from "@/components/vj-node.vue";
 import { useParser } from "@/composables/useParser";
 import { useVirtualList } from "@/composables/useVirtualList";
 import { VJVirtualListNode } from "./types/virtualList";
-import { findTokenIndex, isGroupType } from "./lib/utils";
+import { isGroupType, throwError } from "./lib/utils";
 
 // Limited to +/- 124k nodes
 export default defineComponent({
   name: "vue-json",
   props: {
+    // Path of the selected nodes
     modelValue: {
+      type: Array as PropType<string[]>,
+      default: null,
+    },
+
+    // The json to parse
+    json: {
       type: Object,
       required: true,
     },
     depth: {
       type: Number,
-      default: () => 3,
+      default: 3,
     },
     tablines: {
       type: Boolean,
-      default: () => true,
+      default: true,
     },
     hoverable: {
       type: Boolean,
-      default: () => true,
+      default: true,
     },
     lineHeight: {
       type: Number,
-      default: () => 18,
+      default: 18,
     },
     showLength: {
       type: Boolean,
-      default: () => true,
+      default: true,
     },
     showQuotes: {
       type: Boolean,
-      default: () => true,
+      default: true,
     },
     collapseBracket: {
       type: Boolean,
-      default: () => true,
+      default: true,
     },
     collapseButton: {
       type: Boolean,
-      default: () => true,
+      default: true,
     },
     valueParser: Function as PropType<VJValueParser>,
     lineNumbers: {
       type: Boolean,
-      default: () => true,
+      default: true,
     },
-    virtualList: {
+    virtual: {
       type: Boolean,
-      default: () => false,
+      default: true,
     },
     tabSpaces: {
       type: Number,
-      default: () => 2,
+      default: 2,
     },
     preRender: {
       type: Number,
-      default: () => 1,
+      default: 1,
+    },
+    path: {
+      type: String,
+      default: "data",
+    },
+    selectable: {
+      type: Boolean,
+      default: false,
+    },
+    multiple: {
+      type: Boolean,
+      default: false,
     },
   },
   components: {
@@ -122,14 +148,19 @@ export default defineComponent({
 
     const viewContent = ref(null as HTMLElement | null);
     const {
-      modelValue,
+      json,
       depth,
       hoverable,
       lineNumbers,
-      virtualList,
-      collapseBracket: canBracketCollapse,
-      tablines: hasTablines,
+      virtual,
+      collapseBracket,
+      tablines,
+      path,
     } = propsRef;
+
+    if (!json) {
+      throwError(`You must specify the "json" attribute.`);
+    }
 
     // Line number max width ref
     const lineNumWidthRef = ref<HTMLElement | null>(null);
@@ -137,11 +168,11 @@ export default defineComponent({
 
     const options = reactive({
       depth: depth,
-      tablines: hasTablines,
+      tablines,
       showQuotes: propsRef.showQuotes,
       showLength: propsRef.showLength,
       valueParser: propsRef.valueParser,
-      collapseBracket: canBracketCollapse,
+      collapseBracket,
       collapseButton: propsRef.collapseButton,
       tabSpaces: propsRef.tabSpaces,
     } as ToRefs<VJOptions>);
@@ -152,11 +183,15 @@ export default defineComponent({
     /*******************************************
      *                 PARSER                  *
      *******************************************/
-    const parserOptions = computed(() => ({
-      maxDepth: depth.value,
-    }));
+    const parserOptions = computed(
+      () =>
+        ({
+          maxDepth: depth.value,
+          path: path.value,
+        } as VJParserOptions)
+    );
     const elements = computed(() =>
-      useParser(modelValue.value, parserOptions.value)
+      useParser(json?.value, parserOptions.value)
     );
     provide(VJTokenListKey, elements as unknown as VJToken<VJTokenType>[]);
     /*******************************************/
@@ -214,9 +249,7 @@ export default defineComponent({
       showLineNumbers: lineNumbers,
       lineNumWidthRef,
       viewRef,
-      useVirtualList: virtualList,
-      canBracketCollapse,
-      hasTablines,
+      useVirtualList: virtual,
       visibleNodes,
       // tokensByWidth,
       ...virtualListAttrs,
@@ -243,6 +276,14 @@ export default defineComponent({
     },
   },
   computed: {
+    selection: {
+      get(): Set<string> {
+        return new Set(this.modelValue);
+      },
+      set(value: Set<string>) {
+        this.$emit("update:modelValue", Array.from(value));
+      },
+    },
     // nodeLongestLine(): VJToken<VJTokenType> {
     //   const res = this.visibleNodes.reduce((longest, node) => {
     //     if (getTokenWidth(node) > getTokenWidth(longest)) {
@@ -272,9 +313,10 @@ export default defineComponent({
     windowClasses(): Record<string, boolean | unknown> {
       return {
         vj__window: true,
-        "vj--collapsable-brackets": this.canBracketCollapse,
-        "vj--tablines": this.hasTablines,
+        "vj--collapsable-brackets": this.collapseBracket,
+        "vj--tablines": this.tablines,
         "vj--virtual-list": this.useVirtualList,
+        "vj--hoverable": this.isHoverable,
       };
     },
     nodeStyles(): Record<string, string> {
@@ -293,6 +335,22 @@ export default defineComponent({
     },
   },
   methods: {
+    onNodeClick(path: string) {
+      if (!this.selectable) return;
+      if (this.multiple) {
+        if (this.selection.has(path)) {
+          this.selection.delete(path);
+        } else {
+          this.selection.add(path);
+        }
+      } else {
+        const add = !this.selection.has(path);
+        this.selection.clear();
+        if (add) this.selection.add(path);
+      }
+
+      this.selection = new Set(this.selection);
+    },
     updateViewWidth() {
       this.updatingViewWidth = true;
     },

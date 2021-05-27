@@ -2,7 +2,7 @@ import { VJToken, VJTokenType } from "@/types";
 
 export function throwError(msg: string): never {
   const name = process.env.VUE_APP_NAME;
-  throw new Error(`[${name}] Error: ${msg}`);
+  throw new Error(`[${name}] ${msg}`);
 }
 
 export function getTokenWidth(token: VJToken<VJTokenType>) {

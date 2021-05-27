@@ -14,6 +14,19 @@
       opacity: 0;
     }
 
+    // Selected node
+    &.vj--selected {
+      background-color: $node-selected-color;
+      box-shadow: 0 1px 0 0 darken($color: $node-selected-color, $amount: 5);
+    }
+
+    // Hoverable
+    @at-root .vj__window.vj--hoverable & {
+      &:hover {
+        background-color: $node-hover-color;
+      }
+    }
+
     // Virtual list
     @at-root .vj__window.vj--virtual-list & {
       position: absolute !important;

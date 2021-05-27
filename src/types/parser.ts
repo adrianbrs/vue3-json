@@ -28,6 +28,7 @@ export interface VJToken<T extends VJTokenType> {
   parent: VJToken<VJTokenType> | null;
   collapsed?: boolean;
   index: number;
+  path: string;
   hover: boolean;
   hasNext: boolean;
   role: T extends VJTreeTokenType ? "open" | "close" : undefined;
@@ -37,4 +38,5 @@ export interface VJToken<T extends VJTokenType> {
 
 export interface VJParserOptions {
   maxDepth: number;
+  path: string;
 }

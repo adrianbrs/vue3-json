@@ -1,21 +1,21 @@
 <template>
-  <span :class="nodeClasses">
+  <span :class="nodeClasses" @click="onNodeClick">
     <vj-tabs :token="token" />
 
     <span class="vj__key" v-if="showKey">{{ keyText }}&nbsp;</span>
 
     <span
       :class="valueClasses"
-      @click="onClick"
-      @mouseenter="onMouseOver"
-      @mouseout="onMouseOut"
+      @click="onBracketClick"
+      @mouseenter="onBracketMouseEnter"
+      @mouseout="onBracketMouseLeave"
       v-text="textValue"
     >
     </span>
 
     <span class="vj__comma" v-if="showComma">,</span>
 
-    <span class="vj__comment" v-if="isCollapsed && showLength"
+    <span class="vj__comment" v-if="collapsed && showLength"
       >&nbsp;// {{ token.childCount }}</span
     >
   </span>
@@ -44,10 +44,16 @@ export default defineComponent({
       type: Boolean,
       default: () => false,
     },
+    selected: {
+      type: Boolean,
+      default: () => false,
+    },
   },
+  emits: ["click", "update:collapsed"],
   setup(props, context) {
     const propsRef = toRefs(props);
     const tokenRef = propsRef.token;
+    const { collapsed } = propsRef;
 
     const tokenList = inject(VJTokenListKey);
     const { showQuotes, showLength, collapseBracket, valueParser } = toRefs(
@@ -61,25 +67,22 @@ export default defineComponent({
       showQuotes,
       valueParser: valueParser as unknown as VJValueParser,
       collapseBracket,
-      isCollapsed: propsRef.collapsed,
-      ...useCollapsable(propsRef.collapsed, context),
+      ...useCollapsable(collapsed, context.emit),
     };
   },
-  mounted() {
-    this.$emit("ready", this.$el?.clientHeight, this.token.index);
-  },
   methods: {
-    onClick() {
+    onBracketClick(e: MouseEvent) {
       if (this.canCollapse && this.toggleCollapse) {
+        e.stopPropagation();
         (this.toggleCollapse as unknown as () => void)();
 
         // Remove hover if clicked on a close bracket
         if (this.isClose) {
-          this.onMouseOut();
+          this.onBracketMouseLeave();
         }
       }
     },
-    onMouseOver() {
+    onBracketMouseEnter() {
       if (this.canCollapse && this.tokenRef) {
         this.tokenRef.hover = true;
         if (this.sibling) {
@@ -87,7 +90,7 @@ export default defineComponent({
         }
       }
     },
-    onMouseOut() {
+    onBracketMouseLeave() {
       if (this.canCollapse && this.tokenRef) {
         this.tokenRef.hover = false;
         if (this.sibling) {
@@ -95,13 +98,17 @@ export default defineComponent({
         }
       }
     },
+    onNodeClick() {
+      this.$emit("click", this.tokenPath);
+    },
   },
   computed: {
     nodeClasses(): Record<string, boolean> {
       return {
         vj__node: true,
         "vj--hover": !!this.tokenRef.hover,
-        "vj--collapsed": this.isCollapsed,
+        "vj--collapsed": this.collapsed,
+        "vj--selected": this.selected,
       };
     },
     valueClasses(): Record<string, boolean> {
@@ -113,7 +120,7 @@ export default defineComponent({
       };
     },
     textValue(): string {
-      if (this.isTree && this.isCollapsed) {
+      if (this.isTree && this.collapsed) {
         return `${this.tokenRef.value}...${this.closeToken}`;
       }
       if (this.isString) {
@@ -121,11 +128,18 @@ export default defineComponent({
       }
       return `${this.tokenRef.value}`;
     },
+    tokenPath(): string {
+      return this.tokenRef.path;
+    },
     showKey(): boolean {
-      return this.tokenRef.parent?.type !== "array" && !this.isClose;
+      return (
+        this.tokenRef.parent?.type !== "array" &&
+        !this.isClose &&
+        this.tokenRef.key !== null
+      );
     },
     showComma(): boolean {
-      return this.hasNext && (!this.isTree || this.isClose || this.isCollapsed);
+      return this.hasNext && (!this.isTree || this.isClose || this.collapsed);
     },
     hasNext(): boolean {
       return this.tokenRef?.hasNext ?? true;

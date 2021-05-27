@@ -7,6 +7,8 @@ $theme-dark: (
   string-color: #008000,
   number-color: #0000cd,
   boolean-color: #8b008b,
+  node-hover-color: rgba(#08d, 0.2),
+  node-selected-color: rgba(#08d, 0.3),
 );
 
 // Colors
@@ -29,6 +31,14 @@ $number-color: map-get(
 $boolean-color: map-get(
   $map: $theme-dark,
   $key: "boolean-color",
+);
+$node-hover-color: map-get(
+  $map: $theme-dark,
+  $key: "node-hover-color",
+);
+$node-selected-color: map-get(
+  $map: $theme-dark,
+  $key: "node-selected-color",
 );
 $code-selection-dark: #bcbcbc;
 
