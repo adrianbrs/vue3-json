@@ -181,29 +181,18 @@ export default defineComponent({
 
     // Non collapsed nodes
     const visibleNodes = computed(() => {
-      let visibleList = elements.value.slice();
+      let visibleList = [];
 
-      // Remove collapsed nodes
-      visibleList.forEach((node) => {
-        if (
-          node.collapsed &&
-          node.role === "open" &&
-          typeof node.siblingIndex !== "undefined"
-        ) {
-          // Remove collapsed peace
-          const startIdx = findTokenIndex(visibleList, node);
-          const endIdx = findTokenIndex(
-            visibleList,
-            elements.value[node.siblingIndex]
-          );
-
-          const firstPiece = visibleList.slice(0, startIdx + 1);
-          const lastPiece = visibleList.slice(endIdx + 1);
-
-          // Change visible list
-          visibleList = firstPiece.concat(lastPiece);
+      for (let i = 0; i < elements.value.length; i++) {
+        const node = elements.value[i];
+        if (isGroupType(node.type) && node.collapsed) {
+          if (node.role === "close") continue;
+          visibleList.push(node);
+          i = node.siblingIndex as number;
+        } else {
+          visibleList.push(node);
         }
-      });
+      }
 
       return visibleList;
     });
@@ -211,7 +200,7 @@ export default defineComponent({
     /*******************************************
      *              VIRTUAL LIST               *
      *******************************************/
-    const virtualListAttrs = useVirtualList(elements, visibleNodes, {
+    const virtualListAttrs = useVirtualList(visibleNodes, {
       lineHeight: propsRef.lineHeight,
       preRender: propsRef.preRender,
       viewRef: viewContent,

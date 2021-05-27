@@ -35,6 +35,11 @@
         <input type="number" v-model="depth" />
       </div>
 
+      <div class="input header">
+        <span>Tab Spaces: </span>
+        <input type="number" v-model="options.tabSpaces" />
+      </div>
+
       <div class="input">
         <input type="checkbox" v-model="options.tablines" />
         <span>Use Tab Lines</span>
@@ -96,6 +101,7 @@ export default defineComponent({
         collapseBracket: true,
         lineNumbers: true,
         virtualList: true,
+        tabSpaces: 2,
       } as Partial<VJOptions>,
       debounce: null as number | null,
       example: {

@@ -1,21 +1,15 @@
 .vj {
-  &__tabs {
-    display: flex;
+  // Tab lines
+  &__tab {
+    user-select: text;
 
-    // Tab lines
     @at-root .vj__window.vj--tablines & {
-      .vj-space {
-        box-shadow: -1px 0 0 $tab-border-color;
-        z-index: -2;
+      box-shadow: -1px 0 0 $tab-border-color;
+      z-index: -2;
 
-        &.active {
-          box-shadow: -1px 0 0 $tab-border-color-active;
-        }
+      &.active {
+        box-shadow: -1px 0 0 $tab-border-color-active;
       }
     }
   }
-}
-
-.vj-space {
-  user-select: text;
 }

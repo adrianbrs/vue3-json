@@ -1,26 +1,19 @@
 // Comment
-.vj-comment {
+.vj__comment {
   color: $comment-color;
 }
 
 // String
 .vj-string {
-  .vj-quote,
-  .vj-text {
-    color: $string-color;
-  }
+  color: $string-color;
 }
 
 // Number
 .vj-number {
-  .vj-token {
-    color: $number-color;
-  }
+  color: $number-color;
 }
 
 // Boolean
 .vj-boolean {
-  .vj-token {
-    color: $boolean-color;
-  }
+  color: $boolean-color;
 }

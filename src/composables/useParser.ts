@@ -1,6 +1,7 @@
 import { reactive } from "@vue/reactivity";
 import { isGroupType, throwError } from "@/lib/utils";
 import {
+  VJJSONLiteral,
   VJJSONValue,
   VJParserOptions,
   VJToken,
@@ -13,7 +14,7 @@ import {
 interface ParserIterationOptions {
   depth: number;
   parent: VJToken<VJTokenType> | null;
-  key: string | null;
+  key: string | number | null;
   hasNext: boolean;
   index: number;
   maxDepth: number;
@@ -33,6 +34,28 @@ function getObjectType(obj: unknown) {
 
 function isTypeValid(type: string) {
   return VJ_VALID_TOKEN_TYPES.includes(type as VJTokenType);
+}
+
+function createToken<T extends VJTokenType>(
+  token: Partial<VJToken<T>>
+): VJToken<T> {
+  return Object.assign(
+    {
+      type: null,
+      value: null,
+      depth: 0,
+      key: null,
+      parent: null,
+      hasNext: false,
+      index: -1,
+      hover: false,
+      childCount: -1,
+      role: null,
+      siblingIndex: -1,
+      collapsed: false,
+    } as unknown as VJToken<T>,
+    token
+  );
 }
 
 function parseObject(
@@ -60,26 +83,24 @@ function parseObject(
 
   if (!isGroupType(valType)) {
     return [
-      {
-        type: valType,
-        value: obj,
+      createToken<VJValueTokenType>({
+        type: valType as VJValueTokenType,
+        value: obj as VJJSONLiteral,
         depth,
         key,
         parent,
         hasNext,
         index,
-        hover: false,
-        // visible: !hasMaxDepth || depth <= maxDepth,
-      } as VJToken<VJValueTokenType>,
+      }),
     ];
   } else {
     const isArray = Array.isArray(obj);
-    const entries: Array<unknown> = !isArray
-      ? Object.entries(obj as unknown[])
-      : (obj as Array<unknown>);
+    const entries: VJJSONValue[] | Array<[string, VJJSONValue]> = !isArray
+      ? Object.entries(obj as Record<string, VJJSONValue>)
+      : (obj as Array<VJJSONValue>);
 
-    const open = {
-      type: valType,
+    const open = createToken<VJTreeTokenType>({
+      type: valType as VJTreeTokenType,
       value: isArray ? "[" : "{",
       role: "open",
       parent,
@@ -87,75 +108,63 @@ function parseObject(
       depth,
       index,
       hasNext,
-      hover: false,
-      siblingIndex: -1,
       childCount: entries.length,
-      // visible: !hasMaxDepth || depth <= maxDepth,
       collapsed: hasMaxDepth && depth >= maxDepth,
-    } as VJToken<VJTreeTokenType>;
+    });
 
     let children;
     if (isArray) {
-      children = entries
-        .reduce((arr: any[], child: any, idx: number) => {
+      children = (entries as VJJSONValue[])
+        .reduce((arr, child, idx: number) => {
           const lastIndex = arr[arr.length - 1]?.index ?? index;
           arr.push(
-            ...parseObject(
-              child as VJJSONValue,
-              {
-                depth: depth + 1,
-                hasNext: idx !== entries.length - 1,
-                parent: open,
-                index: lastIndex + 1,
-                maxDepth,
-              } as any
-            )
+            ...parseObject(child as VJJSONValue, {
+              depth: depth + 1,
+              key: idx,
+              hasNext: idx !== entries.length - 1,
+              parent: open,
+              index: lastIndex + 1,
+              maxDepth,
+            })
           );
           return arr;
-        }, [])
+        }, [] as VJToken<VJTokenType>[])
         .flat();
     } else {
-      children = (entries as Array<Array<unknown | unknown>>)
-        .reduce(
-          (
-            arr: VJToken<VJTokenType>[],
-            [key, value]: Array<unknown | string | number>,
-            idx: number
-          ) => {
-            const lastIndex = arr[arr.length - 1]?.index ?? index;
-            arr.push(
-              ...parseObject(value as VJJSONValue, {
-                depth: depth + 1,
-                hasNext: idx !== entries.length - 1,
-                key: key as string,
-                parent: open,
-                index: lastIndex + 1,
-                maxDepth,
-              })
-            );
-            return arr;
-          },
-          []
-        )
+      children = (entries as Array<[string, VJJSONValue]>)
+        .reduce((arr, [key, value], idx) => {
+          const lastIndex = arr[arr.length - 1]?.index ?? index;
+          arr.push(
+            ...parseObject(value, {
+              depth: depth + 1,
+              hasNext: idx !== entries.length - 1,
+              key: key,
+              parent: open,
+              index: lastIndex + 1,
+              maxDepth,
+            })
+          );
+          return arr;
+        }, [] as VJToken<VJTokenType>[])
         .flat();
     }
 
     const lastIndex =
       children[children.length - 1]?.index ?? index + children.length;
 
-    const close = {
-      type: valType,
+    const close = createToken<VJTreeTokenType>({
+      type: valType as VJTreeTokenType,
       value: isArray ? "]" : "}",
       role: "close",
+      key,
       parent,
       depth,
       hasNext,
       index: lastIndex + 1,
       siblingIndex: index,
       childCount: entries.length,
-      // visible: !hasMaxDepth || depth < maxDepth,
       collapsed: open.collapsed,
-    } as VJToken<VJTreeTokenType>;
+    });
 
     // Sets open token siblingIndex
     open.siblingIndex = close.index;

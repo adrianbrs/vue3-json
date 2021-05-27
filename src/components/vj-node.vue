@@ -1,51 +1,23 @@
 <template>
   <span :class="nodeClasses">
-    <vj-tab :token="token" @toggleCollapse="toggleCollapse" />
+    <vj-tabs :token="token" />
 
-    <span class="vj__key" v-if="token.key">
-      <span class="vj-quote" v-if="showQuotes">"</span>
-      <span class="vj-text" v-text="token.key"></span>
-      <span class="vj-quote" v-if="showQuotes">"</span>
-      <span class="vj-colon">:</span>
+    <span class="vj__key" v-if="showKey">{{ keyText }}&nbsp;</span>
+
+    <span
+      :class="valueClasses"
+      @click="onClick"
+      @mouseenter="onMouseOver"
+      @mouseout="onMouseOut"
+      v-text="textValue"
+    >
     </span>
 
-    <span v-if="token.key" class="vj-space">&nbsp;</span>
+    <span class="vj__comma" v-if="showComma">,</span>
 
-    <span :class="valueClasses">
-      <span class="vj-quote" v-if="isString">"</span>
-
-      <!-- Clickable Bracket -->
-      <span
-        :class="[
-          'vj-text',
-          {
-            'vj--clickable': canCollapse,
-          },
-        ]"
-        @click="onClick"
-      >
-        <span
-          class="vj-token"
-          @mouseenter="onMouseOver"
-          @mouseout="onMouseOut"
-          v-text="token.value"
-        ></span>
-
-        <template v-if="isCollapsed && !isClose">
-          <span class="vj-ellipsis">...</span>
-          <span class="vj-token">{{ closeToken }}</span>
-        </template>
-      </span>
-      <!-- / Clickable Bracket -->
-
-      <span class="vj-quote" v-if="isString">"</span>
-      <span class="vj-comma" v-if="hasNext && (isClose || isCollapsed)">,</span>
-
-      <!-- Show length -->
-      <span class="vj-comment" v-if="isCollapsed && showLength"
-        >&nbsp;// {{ token.childCount }} items</span
-      >
-    </span>
+    <span class="vj__comment" v-if="isCollapsed && showLength"
+      >&nbsp;// {{ token.childCount }}</span
+    >
   </span>
 </template>
 
@@ -55,13 +27,13 @@ import { useCollapsable } from "@/composables/useCollapsable";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
 import { VJOptions, VJValueParser } from "@/types/vue3json";
 import { VJToken, VJTokenType, VJTreeTokenType } from "@/types";
-import vjTabVue from "./vj-tab.vue";
+import vjTabsVue from "./vj-tabs.vue";
 import { isGroupType } from "@/lib/utils";
 
 export default defineComponent({
   name: "vj-bracket",
   components: {
-    "vj-tab": vjTabVue,
+    "vj-tabs": vjTabsVue,
   },
   props: {
     token: {
@@ -135,9 +107,25 @@ export default defineComponent({
     valueClasses(): Record<string, boolean> {
       return {
         vj__value: true,
+        "vj--clickable": this.canCollapse,
         [`vj-${this.tokenRef.type}`]: true,
-        [`vj-${this.tokenRef.role}`]: !!this.tokenRef.role,
+        [`vj--tree-${this.tokenRef.role}`]: !!this.tokenRef.role,
       };
+    },
+    textValue(): string {
+      if (this.isTree && this.isCollapsed) {
+        return `${this.tokenRef.value}...${this.closeToken}`;
+      }
+      if (this.isString) {
+        return `"${this.tokenRef.value}"`;
+      }
+      return `${this.tokenRef.value}`;
+    },
+    showKey(): boolean {
+      return this.tokenRef.parent?.type !== "array" && !this.isClose;
+    },
+    showComma(): boolean {
+      return this.hasNext && (!this.isTree || this.isClose || this.isCollapsed);
     },
     hasNext(): boolean {
       return this.tokenRef?.hasNext ?? true;
@@ -147,6 +135,10 @@ export default defineComponent({
       return this.tokenList[
         (this.tokenRef as VJToken<VJTreeTokenType>).siblingIndex
       ] as VJToken<VJTreeTokenType>;
+    },
+    keyText(): string {
+      const quote = this.showQuotes ? `"` : "";
+      return `${quote}${this.tokenRef.key}${quote}:`;
     },
     isTree(): boolean {
       return isGroupType(this.tokenRef.type);

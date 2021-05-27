@@ -27,9 +27,7 @@
         .vj__value {
           &.vj-object,
           &.vj-array {
-            .vj-text {
-              color: $primary;
-            }
+            color: $primary;
           }
         }
       }
@@ -72,10 +70,8 @@
     @at-root .vj__window.vj--collapsable-brackets & {
       &.vj-object,
       &.vj-array {
-        .vj-text:hover {
-          &:hover {
-            color: $primary;
-          }
+        &:hover {
+          color: $primary;
         }
       }
     }

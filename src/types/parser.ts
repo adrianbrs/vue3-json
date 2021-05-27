@@ -22,7 +22,7 @@ export type VJJSONLiteral = string | number | boolean | null;
 
 export interface VJToken<T extends VJTokenType> {
   type: T;
-  key?: string;
+  key: string | number | null;
   value: VJJSONLiteral;
   depth: number;
   parent: VJToken<VJTokenType> | null;
