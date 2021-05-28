@@ -31,9 +31,9 @@ export interface VJToken<T extends VJTokenType> {
   path: string;
   hover: boolean;
   hasNext: boolean;
-  role: T extends VJTreeTokenType ? "open" | "close" : undefined;
-  siblingIndex: T extends VJTreeTokenType ? number : undefined;
-  childCount: T extends VJTreeTokenType ? number : undefined;
+  treeRole: T extends VJTreeTokenType ? 0 | 1 : null;
+  siblingIndex: T extends VJTreeTokenType ? number : null;
+  childCount: T extends VJTreeTokenType ? number : null;
 }
 
 export interface VJParserOptions {

@@ -12,7 +12,7 @@ export function getTokenWidth(token: VJToken<VJTokenType>) {
   return width;
 }
 
-export function isGroupType(type: string) {
+export function isTreeType(type: string) {
   return ["array", "object"].includes(type);
 }
 
@@ -40,4 +40,12 @@ export function findTokenIndex(
   } while (oldMid !== mid && start <= end);
 
   return mid;
+}
+
+export function isTreeStart(token: VJToken<VJTokenType>) {
+  return token.treeRole === 0;
+}
+
+export function isTreeClose(token: VJToken<VJTokenType>) {
+  return token.treeRole === 1;
 }

@@ -27,8 +27,8 @@ import { useCollapsable } from "@/composables/useCollapsable";
 import { VJOptionsKey, VJTokenListKey } from "@/injection-keys";
 import { VJOptions, VJValueParser } from "@/types/vue3json";
 import { VJToken, VJTokenType, VJTreeTokenType } from "@/types";
+import { isTreeClose, isTreeType } from "@/lib/utils";
 import vjTabsVue from "./vj-tabs.vue";
-import { isGroupType } from "@/lib/utils";
 
 export default defineComponent({
   name: "vj-bracket",
@@ -116,7 +116,6 @@ export default defineComponent({
         vj__value: true,
         "vj--clickable": this.canCollapse,
         [`vj-${this.tokenRef.type}`]: true,
-        [`vj--tree-${this.tokenRef.role}`]: !!this.tokenRef.role,
       };
     },
     textValue(): string {
@@ -155,13 +154,13 @@ export default defineComponent({
       return `${quote}${this.tokenRef.key}${quote}:`;
     },
     isTree(): boolean {
-      return isGroupType(this.tokenRef.type);
+      return isTreeType(this.tokenRef.type);
     },
     isString(): boolean {
       return this.tokenRef.type === "string";
     },
     isClose(): boolean {
-      return this.tokenRef.role === "close";
+      return isTreeClose(this.tokenRef);
     },
     canCollapse(): boolean {
       return this.isTree && !!this.collapseBracket;

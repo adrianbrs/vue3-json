@@ -54,7 +54,7 @@ import vjNodeVue from "@/components/vj-node.vue";
 import { useParser } from "@/composables/useParser";
 import { useVirtualList } from "@/composables/useVirtualList";
 import { VJVirtualListNode } from "./types/virtualList";
-import { isGroupType, throwError } from "./lib/utils";
+import { isTreeType, isTreeClose, throwError } from "./lib/utils";
 
 // Limited to +/- 124k nodes
 export default defineComponent({
@@ -205,7 +205,7 @@ export default defineComponent({
     //   console.log("tokenByWidth:", tokensByWidth);
 
     //   tokensByWidth.forEach((token) => {
-    //     if (isGroupType(token.type)) return;
+    //     if (isTreeType(token.type)) return;
     //     if (!token.parent) return;
 
     //   });
@@ -220,8 +220,8 @@ export default defineComponent({
 
       for (let i = 0; i < elements.value.length; i++) {
         const node = elements.value[i];
-        if (isGroupType(node.type) && node.collapsed) {
-          if (node.role === "close") continue;
+        if (isTreeType(node.type) && node.collapsed) {
+          if (isTreeClose(node)) continue;
           visibleList.push(node);
           i = node.siblingIndex as number;
         } else {
@@ -374,7 +374,7 @@ export default defineComponent({
     },
     isCollapsed(el: VJToken<VJTokenType> | null): boolean {
       if (!el) return false;
-      if (!isGroupType(el.type)) {
+      if (!isTreeType(el.type)) {
         return this.isCollapsed(el.parent);
       }
       const tree = el as VJToken<VJTreeTokenType>;
@@ -388,8 +388,8 @@ export default defineComponent({
     },
     updateCollapse(index: number, collapsed: boolean): void {
       const el = this.elements[index] as VJToken<VJTreeTokenType>;
-      if (!isGroupType(el.type)) return;
-      if (el.role === "close") {
+      if (!isTreeType(el.type)) return;
+      if (isTreeClose(el)) {
         return this.updateCollapse(el.siblingIndex, collapsed);
       }
       const sibling = this.elements[

@@ -1,5 +1,5 @@
 import { reactive } from "@vue/reactivity";
-import { isGroupType, throwError } from "@/lib/utils";
+import { isTreeType, throwError } from "@/lib/utils";
 import {
   VJJSONLiteral,
   VJJSONValue,
@@ -85,7 +85,7 @@ function parseObject(
   const { depth, maxDepth, hasNext, key, parent, index, path } = options;
   const hasMaxDepth = maxDepth >= 0;
 
-  if (!isGroupType(valType)) {
+  if (!isTreeType(valType)) {
     return [
       createToken<VJValueTokenType>({
         type: valType as VJValueTokenType,
@@ -107,7 +107,7 @@ function parseObject(
     const open = createToken<VJTreeTokenType>({
       type: valType as VJTreeTokenType,
       value: isArray ? "[" : "{",
-      role: "open",
+      treeRole: 0,
       parent,
       key,
       depth,
@@ -163,7 +163,7 @@ function parseObject(
     const close = createToken<VJTreeTokenType>({
       type: valType as VJTreeTokenType,
       value: isArray ? "]" : "}",
-      role: "close",
+      treeRole: 1,
       key,
       parent,
       depth,
